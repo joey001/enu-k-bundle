@@ -58,10 +58,10 @@ void showUsage() {
 int main(int argc, char** argv) {
 	//p2p-Gnutella04,wiki-vote.txt
 	//char filepath[1024] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.graph";
-	//char filepath[1024] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.bin";
+	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.bin";
 	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\amazon0505.bin";
-	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\wiki-Vote.bin";
-	char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\email-EuAll.bin";
+	char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\wiki-Vote.bin";
+	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\email-EuAll.bin";
 	//char filepath[1024] = "graph1.bin";
 	//char filepath[1024] = "graph2.bin";
 	ui k = 0;
@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
 	}
 	EnuBundle enbundle;
 	enbundle.readBinaryGraph(filepath);
-	enbundle.enumPlex(2,10);
+	enbundle.enumPlex(2,20);
 #endif	
 
 	return 0;

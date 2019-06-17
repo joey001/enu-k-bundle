@@ -123,6 +123,7 @@ class EnuBundle
 	RandList P;		//current solution
 	RandList Cand;
 	RandList Excl;
+	set<ui> satInP;
 
 	ui* neiInP; // neiInP[u] is the number of neighbors in P	
 	ui* neiInG; //number of neibors in the graph induced by G[P\cup Cand]	
@@ -136,6 +137,12 @@ class EnuBundle
 	void addToCand(ui u);
 
 	int canMoveToP(ui u);
+
+	void updateSatSet();
+
+	int isGlobalMaximal2();
+
+	int canGloablaAdd(ui oru);
 
 	//void addToP(ui u);
 
@@ -152,10 +159,10 @@ class EnuBundle
 
 	void recurSearch(ui start);
 
-	void showSolution();
+	void checkSolution();
 
 
-	ui checkSolution();
+	ui dbgCheckSolution();
 
 	void stopAsSolution();
 
@@ -175,7 +182,7 @@ public:
 
 	int degeneracyOrder(ui * seq, ui * core, ui * pos);
 	int writeBlockToBin(char * filepath);
-	int buildBlock(int v);
+	int buildBlock(ui v);
 	
 	void enumPlex(ui _k, ui _lb);
 

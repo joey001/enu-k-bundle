@@ -220,14 +220,14 @@ int EnuBundle::writeBlockToBin(char* filepath) {
 int EnuBundle::writeBlockToBin(char* filepath) {}
 #endif
 
-int EnuBundle::buildBlock(int v) {
+int EnuBundle::buildBlock(ui v) {
 	//mark all the inducing vertices
 	memset(bmark, (ui)0, sizeof(ui)* n);
 	bmark[v] = 1;
 	bvtx = v;
 	bn = 1;
-	vector<int> nei1s;
-	vector<int> blkset;
+	vector<ui> nei1s;
+	vector<ui> blkset;
 	for (ui j = pstart[v]; j < pstart[v + 1]; j++) {
 		ui nei = edges[j];
 		if (!bmark[nei] && dpos[nei] > dpos[v]) {
@@ -311,7 +311,7 @@ int EnuBundle::buildBlock(int v) {
 	for (ui j = 0; j < bn; j++) {
 		int oruid = bID[j];
 		badc[j].init(bn);
-		binv[j].init(bn);
+		//binv[j].init(bn);
 		bstart[j] = bm;
 		for (ui k = pstart[oruid]; k < pstart[oruid + 1]; k++) {
 			if (bmark[edges[k]]) {
@@ -319,7 +319,7 @@ int EnuBundle::buildBlock(int v) {
 				badc[j].set(nID[edges[k]]);
 			}
 		}
-		binv[j].flip();
+		//binv[j].flip();
 		//sort(bedges + bstart[j], bedges + bm); //we can optimize here by sorting the vertex
 	}
 	bstart[bn] = bm;
@@ -351,30 +351,6 @@ void EnuBundle::PToCand(ui u) {
 		neiInP[nei]--;		
 	}
 }
-
-//void EnuBundle::removeFrP(ui u) {
-//	assert(P.contains(u));
-//	P.remove(u);
-//
-//	//update neiInP	
-//	for (ui i = bstart[u]; i < bstart[u + 1]; i++) {
-//		ui nei = bedges[i];
-//		neiInP[nei]--;
-//		neiInG[nei]--;
-//	}
-//}
-//
-//void EnuBundle::addToP(ui u) {
-//	//assert(Cand.contains(u));	
-//	P.add(u);
-//
-//	//update neiInP
-//	for (ui i =  bstart[u]; i < bstart[u + 1]; i++) {
-//		ui nei = bedges[i];
-//		neiInP[nei]++;
-//		neiInG[nei]++;
-//	}	
-//}
 
 void EnuBundle::removeFrCand(ui u) {
 	assert(Cand.contains(u));
@@ -409,33 +385,75 @@ int EnuBundle::canMoveToP(ui u) {
 	return 1;	
 }
 
-//TODO
-int EnuBundle::isGlobalMaximal() {
-	set<ui> sat;
+void EnuBundle::updateSatSet() {
+	satInP.clear();
 	for (ui i = 0; i < P.getSize(); i++) {
 		ui u = P.get(i);
-		if (neiInP[u]+k == P.getSize())
-			sat.insert(u);
+		if (neiInP[u] + k == P.getSize())
+			satInP.insert(u);
 	}
-	for (ui i = 0; i < dpos[bvtx]; i++) {		
-		ui u = dseq[i];		
-		if (core[u] + k >= P.getSize() + 1) {
-			int scon = 0;
-			int pcon = 0;
-			for (ui j = pstart[u]; j < pstart[u + 1]; j++) {
-				ui nei = edges[j];
-				if (bmark[nei]) {
-					ui idInBlk = nID[nei];
-					if (P.contains(idInBlk))
-						pcon++;
-					if (sat.find(idInBlk) != sat.end())
-						scon++;
-				}
+}
+
+
+int EnuBundle::isGlobalMaximal() {
+	vector<ui> candidates;
+	ui init = 0;
+	updateSatSet();
+	if (!satInP.empty()) {
+		for (auto u : satInP) {
+			ui oru = bID[u];
+			if (!init) {
+				candidates.insert(candidates.begin(), edges + pstart[oru], edges + pstart[oru + 1]);
+				init = 1;
 			}
-			if (scon == sat.size() && pcon + k >= P.getSize() + 1) 			
-				return 0;
+			else {
+				//vector<ui> tmp;
+				set_intersection(edges + pstart[oru], edges + pstart[oru + 1], candidates.begin(), candidates.end(), std::back_inserter(candidates));
+				//candidates = tmp;
+			}
 		}
 	}
+	if (!satInP.empty()) {
+		for (auto oru : candidates) {
+			if (dpos[oru] < dpos[bvtx] && canGloablaAdd(oru)) {
+				return 0;
+			}
+		}
+		return 1;
+	}
+	else {
+		return isGlobalMaximal2();
+	}
+}
+int EnuBundle::canGloablaAdd(ui oru) {
+	if (core[oru] + k < P.getSize() + 1)
+		return 0; //can not add
+	int scon = 0;
+	int pcon = 0;
+	for (ui j = pstart[oru]; j < pstart[oru + 1]; j++) {
+		ui nei = edges[j];
+		if (bmark[nei]) {
+			ui idInBlk = nID[nei];
+			if (P.contains(idInBlk)) {
+				pcon++;
+				if (satInP.find(idInBlk) != satInP.end())
+					scon++;
+			}
+		}
+	}
+	if (scon == satInP.size() && pcon + k >= P.getSize() + 1)
+		return 1; //can add
+	return 0;	//can not add
+}
+//TODO
+int EnuBundle::isGlobalMaximal2() {
+	updateSatSet();
+	for (ui i = 0; i < dpos[bvtx]; i++) {		
+		ui u = dseq[i];		
+		if (canGloablaAdd(u))
+			return 0;
+	}
+	//printf("SAT vs P %u: %u\n", sat.size(), P.getSize());
 	return 1;
 }
 
@@ -483,26 +501,25 @@ void EnuBundle::recurSearch(ui start) {
 	}
 }
 
+
+void EnuBundle::checkSolution() {
+	ui ismax = isGlobalMaximal2();
+	if (ismax) {
+		cntplex++;
 #ifdef SHOWSOL
-void EnuBundle::showSolution() {
-
-	printf("Sol:");
-	for (ui i = 0; i < P.getSize(); i++) {
-		printf("%u ", bID[P.get(i)]);
-	}
-	printf("\n");
-	ui rt = checkSolution();
-	if (!rt)
-		printf("pause\n");
-}
-#else
-void EnuBundle::showSolution() {
-
-}
+		printf("Sol:");
+		for (ui i = 0; i < P.getSize(); i++) {
+			printf("%u ", bID[P.get(i)]);
+		}
+		printf("\n");
+		//ui rt = dbgCheckSolution();
+		//if (!rt)
+		//	printf("Wrong solution pause\n");
 #endif
+	}
+}
 
-#ifdef DBGMOD
-ui EnuBundle::checkSolution() {
+ui EnuBundle::dbgCheckSolution() {
 	//check k-plex
 	if (P.getSize() < lb) {
 		printf("ERROR:Samller than lower bound\n");
@@ -558,13 +575,7 @@ ui EnuBundle::checkSolution() {
 	else {
 		allsols.insert(sol);
 	}
-
 }
-#else
-ui EnuBundle::checkSolution() {
-	return 1;
-}
-#endif
 
 /**
 Stop as the whole graph is a solution.
@@ -600,12 +611,7 @@ void EnuBundle::stopAsSolution() {
 #endif
 	//Check maximal, Excl is not changed
 	if (rexcl.size() == Excl.getSize()) { // Excel will be empty
-		if (isGlobalMaximal()) {
-			cntplex++;
-#ifdef DBGMOD
-			showSolution();
-#endif
-		}
+		checkSolution();
 	}
 	for (auto u : rcand) {
 		PToCand(u);
@@ -630,13 +636,10 @@ void EnuBundle::stopAsSolution() {
 	if (Cand.empty() && Excl.empty()) {
 		//maximal;
 		//P.printList();
-		if (P.getSize() >= lb && isGlobalMaximal()) {			
-			cntplex++;
-#ifdef DBGMOD
-			showSolution();
-#endif
+		if (P.getSize() >= lb) {
+			checkSolution();
+			return;
 		}
-		return;
 	}
 	if (Cand.empty()) return;
 
@@ -715,20 +718,16 @@ void EnuBundle::enumPlex(ui _k, ui _lb)
 	bedges = new ui[m];
 	
 	badc = new MBitSet[min(maxcore*maxcore, n)];
-	binv = new MBitSet[min(maxcore*maxcore, n)];
+	//binv = new MBitSet[min(maxcore*maxcore, n)];
 
 	for (ui i = 0; i < n - 1; i++) {		
 		ui v = dseq[i];
 		if (core[v] +k >= lb ) {
 			int built = buildBlock(v);
 			if (!built) {
-#ifdef DBGMOD
 				printf("Vertex %u [%u] discard \n", i, v);
-#endif
 				continue;
 			}
-#ifdef DBGMOD
-			printf("\n-----------------------------\n");
 			printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
 #ifdef SHOWBLK	
 			for (ui i = 0; i < bn; i++) {
@@ -739,7 +738,6 @@ void EnuBundle::enumPlex(ui _k, ui _lb)
 				}
 				printf("\n");
 			}
-#endif
 #endif
 
 #ifdef BFSEARCH
@@ -764,33 +762,27 @@ void EnuBundle::enumPlex(ui _k, ui _lb)
 #else
 			//build cand;
 			P.clear();
-			P.add(0);
+			//P.add(0);
 			Cand.clear();
 
 			memset(neiInP, 0, sizeof(int) * bn);
-			for (ui j = bstart[0]; j < bstart[1]; j++) {
-				neiInP[bedges[j]] = 1;
-				//Cand.add(bedges[j]); // We only neigbors in V(H) 
-			}
+			//for (ui j = bstart[0]; j < bstart[1]; j++) {
+			//	neiInP[bedges[j]] = 1;
+			//}
 
-			for (ui u = 1; u < bn; u++) {
+			for (ui u = 0; u < bn; u++) {
 				Cand.add(u);
 			}
 			
 			for (ui j = 0; j < bn; j++) {
 				neiInG[j] = bstart[j + 1] - bstart[j];
 			}
-
 			Excl.clear();
-
 			nnodes = 0;
-
-			branch();
+			recurSearch(0);
+			//branch();
 #endif// BFSEARCH
-
-#ifdef DBGMOD
 			printf("Node number: %llu\n", nnodes);
-#endif 
 		}
 	}
 	
@@ -800,7 +792,7 @@ void EnuBundle::enumPlex(ui _k, ui _lb)
 	printf("Sort time %.2f\n", Utility::elapse_seconds(startclk, sortclk));
 	//printf("Totoal nodes %u \n", nnodes);
 }
-
+#ifdef BFSEARCH
 ui EnuBundle::checkMaximal(vector<ui> &S, ui* degS) {
 	set<ui> sat;
 	for (auto u: S) {
@@ -926,6 +918,8 @@ void EnuBundle::enumBruteforce(vector<ui> &CurS, vector<ui> &CandS, vector<ui> &
 	}
 
 }
+#endif
+
 EnuBundle::EnuBundle()
 {
 	n = 0;
