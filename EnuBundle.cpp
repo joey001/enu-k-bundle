@@ -780,53 +780,67 @@ void EnuBundle::stopAsSolution() {
 
 	//find mindeg 
 	ui minu = bn;
-	for (ui u = 0; u < bn; u++) {			
+	/*for (ui u = 0; u < bn; u++) {			
 		if (Cand.contains(u) || P.contains(u)) {
 			if(minu == bn || neiInG[u] < neiInG[minu])
 				minu = u;
 		}
+	}*/
+	for (ui i = 0; i < P.getSize(); i++) {
+		ui u = P.get(i);
+		if (minu == bn || neiInG[u] < neiInG[minu]) {
+			minu = u;
+		}
 	}
-
-#ifdef SHOWRECUR
-	printf("Mindeg vertex %u ,degG %u \n", minu, neiInG[minu]);
-#endif
-	assert(minu != bn);
-	//The whole graph is a k-plex
-	if (neiInG[minu] >= Cand.getSize() + P.getSize() - k) { 
-		stopAsSolution();
-#ifdef SHOWRECUR
-		printf("G is a k-plex. Backtrack.\n");
-		printf("--------BK-------------\n");
-#endif
-		return;
-	}
-	else if (Cand.getSize() + P.getSize() <= lb) {
-#ifdef SHOWRECUR
-		// the whole graph, which is of size lb, is not a k-plex,
-		//thus it is not possible to find a better larger than lb
-		printf("No better solution as G=lb, G is not kplex.Backtrack\n");
-		printf("--------BK-------------\n");
-#endif
-		return; 
-	}
-	else {
+	if (neiInG[minu] + k < Cand.getSize() + P.getSize()) { // The whole graph can not be a k-plex
+		ui szmax = k + neiInP[minu] - P.getSize();
 		vector<ui> doing;
 		for (ui i = 0; i < Cand.getSize(); i++) {
 			ui u = Cand.get(i);
-			if (u!= minu && !badc[minu].test(u))
+			if (u != minu && !badc[minu].test(u))
 				doing.push_back(u);
 		}
-
+		assert(szmax < doing.size());
+		recurSearch(doing, szmax);
+	}
+	else {
+		for (ui i = 0; i < Cand.getSize(); i++) {
+			ui u = Cand.get(i);
+			if (neiInG[u] < neiInG[minu]) {
+				minu = u;
+			}
+		}
+		//Now, minu is the minimum degree vertex of G[P\cup C]
+		if (neiInG[minu] >= Cand.getSize() + P.getSize() - k) {
+			//The whole graph is a k-plex
+			stopAsSolution();
 #ifdef SHOWRECUR
-		printf("Recur %u, in %s\n", minu, Cand.contains(minu) ? "Cand":"P");
+			printf("G is a k-plex. Backtrack.\n");
+			printf("--------BK-------------\n");
 #endif
+			return;
+		}
+		else if (Cand.getSize() + P.getSize() <= lb) {
+#ifdef SHOWRECUR
+			// the whole graph, which is of size lb, is not a k-plex,
+			//thus it is not possible to find a better larger than lb
+			printf("No better solution as G=lb, G is not kplex.Backtrack\n");
+			printf("--------BK-------------\n");
+#endif
+			return;
+		}		
 		if (P.contains(minu)) {
 			ui szmax = k + neiInP[minu] - P.getSize();
+			vector<ui> doing;
+			for (ui i = 0; i < Cand.getSize(); i++) {
+				ui u = Cand.get(i);
+				if (u != minu && !badc[minu].test(u))
+					doing.push_back(u);
+			}
 			assert(szmax < doing.size());
 			recurSearch(doing, szmax);
-		}else { // Cand.contains(minu)
-			//The first branch removes minu from Cand
-			assert(Cand.contains(minu));
+		}
+		else { //minu in Cand
 			removeFrCand(minu);
 			Excl.add(minu);
 #ifdef SHOWRECUR
@@ -841,8 +855,7 @@ void EnuBundle::stopAsSolution() {
 #endif
 			recurSearch(minu);
 		}
-	}
-	
+	}	
 }
  
 void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
