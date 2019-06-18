@@ -7,7 +7,7 @@ using namespace std;
 //#define BFSEARCH
 //#define SHOWBLK
 //#define SHOWSOL
-//#define	SHOWRECUR
+//#define SHOWRECUR
 #endif
 
 int EnuBundle::writeBinaryGraph(const char* filepath) {
@@ -457,6 +457,128 @@ int EnuBundle::isGlobalMaximal2() {
 	return 1;
 }
 
+/**
+A stronger branch rules
+Move at most szmax vertices from doing to P.
+*/
+void EnuBundle::recurSearch(vector<ui> &doing, ui szmax) {
+	vector<ui> rcand;
+	vector<ui> rexcl;
+	assert(szmax < doing.size());
+	assert(szmax > 0 && szmax < k);
+	if (Cand.getSize() + P.getSize() < lb) { // prune
+		return;
+	}
+#ifdef SHOWRECUR
+	printf("At most %u from Doing: ", szmax);
+	for (ui u : doing) {
+		printf("%u ", u);
+	}
+	printf("\n");
+#endif
+	ui idx = 0;
+	ui stop = 0;
+	while(!stop && idx <= szmax){ // szmax +1 branches
+		if (idx > 0) {
+			ui ubr = doing[idx - 1];			
+			CandToP(ubr);
+#ifdef SHOWRECUR
+			printf("Add %u\n", ubr);
+#endif
+			vector<ui> tmpcand;
+			//update candidate,
+			//WARNING: iterator of Cand(Excl) will be invalid if it is deleted
+			for (ui j = 0; j < Cand.getSize(); j++) {
+				ui u = Cand.get(j);
+				if (!canMoveToP(u)) {
+					tmpcand.push_back(u);					
+				}
+			}
+			for (ui u : tmpcand) {
+				removeFrCand(u);
+			}
+			rcand.insert(rcand.end(), tmpcand.begin(), tmpcand.end());
+			//update excl
+			vector<ui> tmpexcl;
+			for (ui j = 0; j < Excl.getSize(); j++) {
+				ui u = Excl.get(j);
+				if (!canMoveToP(u)) {
+					tmpexcl.push_back(u);
+				}
+			}
+			for (auto u : tmpexcl) {
+				Excl.remove(u);
+			}
+			rexcl.insert(rexcl.end(), tmpexcl.begin(), tmpexcl.end());
+		}
+		
+		//remove the last vertex all the remaining vertex;
+		if (idx < szmax) {// the 0 to sz-1 branches
+			if (!Cand.contains(doing[idx])) {// 
+				//doing[idx] is reduced when adding doing[0->idx-1]. indicating
+				//backtrack idx since we only add 0-(idx-1) vertices
+				Excl.add(doing[idx]);
+#ifdef SHOWRECUR
+				printf("Remove %u, alread reduced\n", doing[idx]);
+#endif
+				branch();
+				Excl.remove(doing[idx]);
+				stop = 1;
+			}
+			else {
+				removeFrCand(doing[idx]);
+				Excl.add(doing[idx]);
+#ifdef SHOWRECUR
+				printf("Remove %u \n", doing[idx]);
+#endif
+				branch();
+				addToCand(doing[idx]);
+				Excl.remove(doing[idx]);
+			}
+		}
+		else { // idx== szmax, the last branch
+			vector<ui> doreduced;
+			for (ui j = idx; j < doing.size(); j++) {
+				if (Cand.contains(doing[j])) { //not reduced, we need to recover
+					removeFrCand(doing[j]);
+					doreduced.push_back(doing[j]);
+#ifdef SHOWRECUR
+					printf("Remove %u \n", doing[j]);
+#endif
+				}
+				else {
+#ifdef SHOWRECUR
+					printf("Remove %u, alread reduced\n", doing[j]);
+#endif
+				}
+				Excl.add(doing[j]);
+			}
+			branch();
+
+			//recover
+			for (ui j = idx; j < doing.size(); j++) {
+				Excl.remove(doing[j]);
+			}
+			for (auto u : doreduced)
+				addToCand(u);			
+		}
+		idx++;
+	}
+	for (ui i = 0; i < idx-1; i++) {
+		PToCand(doing[i]);
+	}
+	//recover
+	for (auto u : rcand) {
+		addToCand(u);
+	}
+	for (auto u : rexcl) {
+		Excl.add(u);
+	}
+}
+
+/*
+* Take a vertex start from cand and continue the search
+*/
 void EnuBundle::recurSearch(ui start) {
 	//reduce
 	assert(Cand.contains(start));
@@ -489,7 +611,6 @@ void EnuBundle::recurSearch(ui start) {
 		Excl.remove(u);
 	}
 	branch(); // branch search	
-	
 	//recover
 	PToCand(start);
 
@@ -583,7 +704,7 @@ Stop as the whole graph is a solution.
 void EnuBundle::stopAsSolution() { 
 	vector<ui> rcand;
 	vector<ui> rexcl;
-	nnodes++;
+	//nnodes++;
 	for (ui i = 0; i < Cand.getSize(); i++)
 		rcand.push_back(Cand.get(i));
 
@@ -597,17 +718,17 @@ void EnuBundle::stopAsSolution() {
 		}
 	}
 #ifdef SHOWRECUR
-	printf("-------Nodes: %u (LEAF)-------------\n", nnodes);
+	//printf("-------Nodes: %u (LEAF)-------------\n", nnodes);
 	printf("P:");
 	for (ui i = 0; i < P.getSize(); i++)
 		printf("%u ", P.get(i));
-	printf("\nCand:");
+	/*printf("\nCand:");
 	for (ui i = 0; i < Cand.getSize(); i++)
 		printf("%u ", Cand.get(i));
 	printf("\nExcl:");
 	for (ui i = 0; i < Excl.getSize(); i++)
 		printf("%u ", Excl.get(i));
-	printf("\n");
+	printf("\n");*/
 #endif
 	//Check maximal, Excl is not changed
 	if (rexcl.size() == Excl.getSize()) { // Excel will be empty
@@ -641,62 +762,95 @@ void EnuBundle::stopAsSolution() {
 			return;
 		}
 	}
-	if (Cand.empty()) return;
+	if (Cand.empty()) {
+#ifdef SHOWRECUR
+		printf("|C|=0. Backtrack.\n");
+		printf("--------BK-------------\n");
+#endif
+		return;
+	}
 
 	if (Cand.getSize() + P.getSize() < lb) {
+#ifdef SHOWRECUR
+		printf("|C|+|P|<lb. Backtrack.\n");
+		printf("--------BK-------------\n");
+#endif
 		return;
-	}	
+	}
 
 	//find mindeg 
 	ui minu = bn;
-	ui branchu = bn;
 	for (ui u = 0; u < bn; u++) {			
 		if (Cand.contains(u) || P.contains(u)) {
 			if(minu == bn || neiInG[u] < neiInG[minu])
 				minu = u;
 		}
-		if (Cand.contains(u)) {
-			if (branchu == bn || neiInG[u] < neiInG[branchu])
-				branchu = u;
-		}
-
 	}
 
 #ifdef SHOWRECUR
-	printf("Mindeg vertex %u ,degG %u, degP %u\n", minu, neiInP[minu], neiInG[minu]);
+	printf("Mindeg vertex %u ,degG %u \n", minu, neiInG[minu]);
 #endif
-	assert(minu != bn && branchu != bn);
+	assert(minu != bn);
 	//The whole graph is a k-plex
-	if (neiInG[minu] >= Cand.getSize() + P.getSize() - k) { 			
+	if (neiInG[minu] >= Cand.getSize() + P.getSize() - k) { 
 		stopAsSolution();
+#ifdef SHOWRECUR
+		printf("G is a k-plex. Backtrack.\n");
+		printf("--------BK-------------\n");
+#endif
+		return;
 	}
 	else if (Cand.getSize() + P.getSize() <= lb) {
 #ifdef SHOWRECUR
-		printf("No better solution as G=lb, G is not kplex \n");
+		// the whole graph, which is of size lb, is not a k-plex,
+		//thus it is not possible to find a better larger than lb
+		printf("No better solution as G=lb, G is not kplex.Backtrack\n");
+		printf("--------BK-------------\n");
 #endif
-		return; // the whole graph is not a k-plex and it is not possible to find a better one 
+		return; 
 	}
 	else {
+		vector<ui> doing;
+		for (ui i = 0; i < Cand.getSize(); i++) {
+			ui u = Cand.get(i);
+			if (u!= minu && !badc[minu].test(u))
+				doing.push_back(u);
+		}
+
 #ifdef SHOWRECUR
-		printf("Recur %u\n", branchu);
+		printf("Recur %u, in %s\n", minu, Cand.contains(minu) ? "Cand":"P");
 #endif
-		recurSearch(branchu);	
-
-		removeFrCand(branchu);
-		Excl.add(branchu);
-		branch();
-
-		Excl.remove(branchu);
-		addToCand(branchu);		
+		if (P.contains(minu)) {
+			ui szmax = k + neiInP[minu] - P.getSize();
+			assert(szmax < doing.size());
+			recurSearch(doing, szmax);
+		}else { // Cand.contains(minu)
+			//The first branch removes minu from Cand
+			assert(Cand.contains(minu));
+			removeFrCand(minu);
+			Excl.add(minu);
+#ifdef SHOWRECUR
+			printf("Remove %u\n", minu);
+#endif
+			branch();
+			Excl.remove(minu);
+			addToCand(minu);
+			//The second branch add minu to Cand
+#ifdef SHOWRECUR
+			printf("Add %u to P\n", minu);
+#endif
+			recurSearch(minu);
+		}
 	}
 	
 }
  
-void EnuBundle::enumPlex(ui _k, ui _lb)
+void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 {	
 	startclk = clock();
 	k = _k;
 	lb = _lb;
+	maxsec = _maxsec;
 	cntplex = 0;
 	
 	Excl.init(n);
@@ -725,7 +879,7 @@ void EnuBundle::enumPlex(ui _k, ui _lb)
 		if (core[v] +k >= lb ) {
 			int built = buildBlock(v);
 			if (!built) {
-				printf("Vertex %u [%u] discard \n", i, v);
+				//printf("Vertex %u [%u] discard \n", i, v);
 				continue;
 			}
 			printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
@@ -782,7 +936,7 @@ void EnuBundle::enumPlex(ui _k, ui _lb)
 			recurSearch(0);
 			//branch();
 #endif// BFSEARCH
-			printf("Node number: %llu\n", nnodes);
+			printf("Node number: %llu\n\n", nnodes);
 		}
 	}
 	

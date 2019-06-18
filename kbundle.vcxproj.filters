@@ -18,9 +18,6 @@
     <ClInclude Include="Defines.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Enplex.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="EnuBundle.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -32,9 +29,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Enplex.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="EnuBundle.cpp">
       <Filter>源文件</Filter>
     </ClCompile>

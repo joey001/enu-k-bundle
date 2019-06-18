@@ -127,7 +127,6 @@ class EnuBundle
 
 	ui* neiInP; // neiInP[u] is the number of neighbors in P	
 	ui* neiInG; //number of neibors in the graph induced by G[P\cup Cand]	
-	ListLinearHeap *degHeap;
 
 	//void reduceCand(int v);	//Reduce a vertex from candidate set
 	//void backToCand(int v); //Move a vertex back to candidate set
@@ -142,6 +141,8 @@ class EnuBundle
 
 	int isGlobalMaximal2();
 
+	void recurSearch(vector<ui> &doing, ui szmax);
+
 	int canGloablaAdd(ui oru);
 
 	//void addToP(ui u);
@@ -152,6 +153,7 @@ class EnuBundle
 
 	void PToCand(ui u);
 
+	int buildBlock(ui v);
 
 	int isGlobalMaximal();
 
@@ -168,6 +170,7 @@ class EnuBundle
 
 	int cntplex;
 	set<Solution> allsols;
+	ui maxsec;
 
 	unsigned long long nnodes;
 	clock_t startclk;
@@ -182,9 +185,8 @@ public:
 
 	int degeneracyOrder(ui * seq, ui * core, ui * pos);
 	int writeBlockToBin(char * filepath);
-	int buildBlock(ui v);
 	
-	void enumPlex(ui _k, ui _lb);
+	void enumPlex(ui _k, ui _lb, ui maxsec);
 
 	ui checkMaximal(vector<ui>& S, ui * degS);
 
