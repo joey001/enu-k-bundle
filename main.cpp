@@ -58,14 +58,14 @@ void showUsage() {
 int main(int argc, char** argv) {
 	//p2p-Gnutella04,wiki-vote.txt
 	//char filepath[1024] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.graph";
-	char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.bin";
+	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.bin";
 	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\soc-Slashdot0902.bin";
 	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\wiki-Vote.bin";
-	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\email-EuAll.bin";
+	char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\email-EuAll.bin";
 	//char filepath[1024] = "graph1.bin";
 	//char filepath[1024] = "graph2.bin";
-	ui k = 2;
-	ui lb = 10;
+	ui k = 3;
+	ui lb = 30;
 	ui maxsec = 100;
 	for (int i = 1; i < argc; i += 2) {
 		if (argv[i][0] != '-' || argv[i][2] != 0) {

@@ -124,10 +124,13 @@ int EnuBundle::readRawSNAPText(const char* filepath) {
 		if (*p == '#' || p == '\0') continue;
 		stringstream ss(buf);
 		ss >> from >> to;
-		epairs.push_back(make_pair(from, to));
-		epairs.push_back(make_pair(to, from));
-		nodes.push_back(from);
-		nodes.push_back(to);
+		//去除自环边
+		if (from != to) {
+			epairs.push_back(make_pair(from, to));
+			epairs.push_back(make_pair(to, from));
+			nodes.push_back(from);
+			nodes.push_back(to);
+		}
 	}
 	infile.close();
 
@@ -138,6 +141,7 @@ int EnuBundle::readRawSNAPText(const char* filepath) {
 	//去除重边
 	sort(epairs.begin(), epairs.end());
 	epairs.erase(unique(epairs.begin(), epairs.end()), epairs.end());
+	
 
 	//去除孤立点。对剩下的点重新编号。 in p2p-Gnutella04, 10452 is a isolate vertex
 	ui contn = 1;
@@ -777,6 +781,8 @@ void EnuBundle::stopAsSolution() {
 #endif
 		return;
 	}
+	if (bvtx == 6660 && nnodes == 3)
+		printf("pause\n");
 
 	//find mindeg 
 	ui minu = bn;
@@ -841,6 +847,13 @@ void EnuBundle::stopAsSolution() {
 			recurSearch(doing, szmax);
 		}
 		else { //minu in Cand
+			//The first branch add minu to Cand
+#ifdef SHOWRECUR
+			printf("Add %u to P\n", minu);
+#endif
+			recurSearch(minu);
+
+			//The second remove miu from Cand
 			removeFrCand(minu);
 			Excl.add(minu);
 #ifdef SHOWRECUR
@@ -849,11 +862,7 @@ void EnuBundle::stopAsSolution() {
 			branch();
 			Excl.remove(minu);
 			addToCand(minu);
-			//The second branch add minu to Cand
-#ifdef SHOWRECUR
-			printf("Add %u to P\n", minu);
-#endif
-			recurSearch(minu);
+
 		}
 	}	
 }
