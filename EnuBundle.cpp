@@ -124,10 +124,13 @@ int EnuBundle::readRawSNAPText(const char* filepath) {
 		if (*p == '#' || p == '\0') continue;
 		stringstream ss(buf);
 		ss >> from >> to;
-		epairs.push_back(make_pair(from, to));
-		epairs.push_back(make_pair(to, from));
-		nodes.push_back(from);
-		nodes.push_back(to);
+		//È¥³ý×Ô»·±ß
+		if (from != to) {
+			epairs.push_back(make_pair(from, to));
+			epairs.push_back(make_pair(to, from));
+			nodes.push_back(from);
+			nodes.push_back(to);
+		}
 	}
 	infile.close();
 
