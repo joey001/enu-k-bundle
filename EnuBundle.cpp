@@ -1,7 +1,4 @@
-#include <fstream>
-#include "EnuBundle.h"
-#include "Utility.h"
-using namespace std;
+#define DBGMOD
 
 #ifdef DBGMOD
 //#define BFSEARCH
@@ -10,22 +7,12 @@ using namespace std;
 //#define SHOWRECUR
 #endif
 
-int EnuBundle::writeBinaryGraph(const char* filepath) {
-	vector<ui> nodes;
 
-	FILE *f = Utility::open_file(filepath, "wb");
-	ui tt = sizeof(ui);
-	fwrite(&tt, sizeof(ui), 1, f); //length of ui
-	fwrite(&n, sizeof(ui), 1, f);
-	fwrite(&m, sizeof(ui), 1, f);
-	ui *degree = new ui[n];
-	for (ui i = 0; i < n; i++)
-		degree[i] = pstart[i + 1] - pstart[i];
-	fwrite(degree, sizeof(ui), n, f);
-	fwrite(edges, sizeof(ui), m, f);
-	fclose(f);
-	return 0;
-}
+#include <fstream>
+#include "EnuBundle.h"
+#include "Utility.h"
+using namespace std;
+
 
 
 /**
@@ -60,119 +47,6 @@ int EnuBundle::readBinaryGraph(const char* filepath) {
 	fclose(f);
 	delete[] degree;
 	return 0;
-}
-
-/**
-TODO: reverse[] is not supported.
-*/
-int EnuBundle::readRawDIM10Text(const char* filepath) {
-	ifstream infile;
-	char buf[1024];
-	vector<pair<ui, ui> > epairs;
-	vector<ui> nodes;
-	//FILE *f = Utility::open_file(filepath, "r");
-	infile.open(filepath, ios::in);
-	if (!infile.is_open()) {
-		fprintf(stderr, "can not find file %s\n", filepath);
-		exit(1);
-	}
-
-	infile.getline(buf, 1024);
-	while (buf[0] == '%') infile.getline(buf, 1024);
-
-	stringstream ss(buf);
-	int fmt;
-	ss >> n >> m >> fmt;
-	m *= 2;
-	pstart = new ui[n + 1];
-	edges = new ui[m];
-	reverse = new ui[m];
-	ui j = 0;
-	for (ui u = 0; u < n; u++) {
-		pstart[u] = j;
-		infile.getline(buf, 1024);
-		stringstream ss(buf);
-		int nei;
-		while (ss >> nei) {
-			edges[j] = nei - 1;
-			reverse[j] = u;
-			j++;
-		}
-		sort(edges + pstart[u], edges + j);
-	}
-	pstart[n] = j;
-	assert(j == m);
-}
-
-
-int EnuBundle::readRawSNAPText(const char* filepath) {
-	ifstream infile;
-	char buf[1024];
-	vector<pair<ui, ui> > epairs;
-	vector<ui> nodes;
-	//FILE *f = Utility::open_file(filepath, "r");
-	infile.open(filepath, ios::in);
-	if (!infile.is_open()) {
-		fprintf(stderr, "can not find file %s\n", filepath);
-		exit(1);
-	}
-	int max_id = 0;
-	int from, to;
-	while (infile.getline(buf, 1024)) {
-		char *p = buf;
-		while (*p == ' ' && *p != '\0') p++;
-		if (*p == '#' || p == '\0') continue;
-		stringstream ss(buf);
-		ss >> from >> to;
-		//去除自环边
-		if (from != to) {
-			epairs.push_back(make_pair(from, to));
-			epairs.push_back(make_pair(to, from));
-			nodes.push_back(from);
-			nodes.push_back(to);
-		}
-	}
-	infile.close();
-
-	//去除重点
-	sort(nodes.begin(), nodes.end());
-	nodes.erase(unique(nodes.begin(), nodes.end()), nodes.end());
-
-	//去除重边
-	sort(epairs.begin(), epairs.end());
-	epairs.erase(unique(epairs.begin(), epairs.end()), epairs.end());
-	
-
-	//去除孤立点。对剩下的点重新编号。 in p2p-Gnutella04, 10452 is a isolate vertex
-	ui contn = 1;
-	map<ui, ui> idmp;
-	for (ui i = 0; i < nodes.size(); i++) {
-		idmp[nodes[i]] = i;
-		if (nodes[i] != i) {
-			contn = 0;
-		}
-	}
-	if (contn == 0) printf("Node ids are not preserved! \n");
-
-	n = nodes.size();
-	m = epairs.size();
-	printf("n = %s, (undirected) m = %s\n",
-		Utility::integer_to_string(n).c_str(),
-		Utility::integer_to_string(m / 2).c_str());
-
-	pstart = new ui[n + 1];
-	edges = new ui[m];
-	reverse = new ui[m];
-	ui j = 0;
-	for (ui i = 0; i < n; i++) {
-		pstart[i] = j;
-		while (j < m && epairs[j].first == nodes[i]) {
-			edges[j] = idmp[epairs[j].second];
-			reverse[j] = i;
-			++j;
-		}
-	}
-	pstart[n] = j;
 }
 
 int EnuBundle::degeneracyOrder(ui *seq, ui *core, ui* pos) {
@@ -489,31 +363,34 @@ void EnuBundle::recurSearch(vector<ui> &doing, ui szmax) {
 #ifdef SHOWRECUR
 			printf("Add %u\n", ubr);
 #endif
-			vector<ui> tmpcand;
+			//vector<ui> tmpcand;
+			szcc = 0;
 			//update candidate,
 			//WARNING: iterator of Cand(Excl) will be invalid if it is deleted
 			for (ui j = 0; j < Cand.getSize(); j++) {
 				ui u = Cand.get(j);
 				if (!canMoveToP(u)) {
-					tmpcand.push_back(u);					
+					//tmpcand.push_back(u);					
+					ccache[szcc++] = u;
 				}
 			}
-			for (ui u : tmpcand) {
-				removeFrCand(u);
+			for (ui i = 0; i < szcc; i++) {
+				removeFrCand(ccache[i]);
 			}
-			rcand.insert(rcand.end(), tmpcand.begin(), tmpcand.end());
+			rcand.insert(rcand.end(), ccache, ccache+szcc);
 			//update excl
-			vector<ui> tmpexcl;
+			szrc = 0;
 			for (ui j = 0; j < Excl.getSize(); j++) {
 				ui u = Excl.get(j);
 				if (!canMoveToP(u)) {
-					tmpexcl.push_back(u);
+					//tmpexcl.push_back(u);
+					rcache[szrc++] = u;
 				}
 			}
-			for (auto u : tmpexcl) {
-				Excl.remove(u);
+			for (ui i = 0; i < szrc; i++) {
+				Excl.remove(rcache[i]);
 			}
-			rexcl.insert(rexcl.end(), tmpexcl.begin(), tmpexcl.end());
+			rexcl.insert(rexcl.end(), rcache, rcache+szrc);
 		}
 		
 		//remove the last vertex all the remaining vertex;
@@ -763,8 +640,8 @@ void EnuBundle::stopAsSolution() {
 		//P.printList();
 		if (P.getSize() >= lb) {
 			checkSolution();
-			return;
 		}
+		return;
 	}
 	if (Cand.empty()) {
 #ifdef SHOWRECUR
@@ -781,8 +658,6 @@ void EnuBundle::stopAsSolution() {
 #endif
 		return;
 	}
-	if (bvtx == 6660 && nnodes == 3)
-		printf("pause\n");
 
 	//find mindeg 
 	ui minu = bn;
@@ -895,6 +770,10 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 	
 	badc = new MBitSet[min(maxcore*maxcore, n)];
 	//binv = new MBitSet[min(maxcore*maxcore, n)];
+	ccache = new ui[min(maxcore*maxcore, n)];
+	szcc = 0;
+	rcache = new ui[min(maxcore*maxcore, n)];
+	szrc = 0;
 
 	for (ui i = 0; i < n - 1; i++) {		
 		ui v = dseq[i];

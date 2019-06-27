@@ -131,6 +131,12 @@ class EnuBundle
 	//void reduceCand(int v);	//Reduce a vertex from candidate set
 	//void backToCand(int v); //Move a vertex back to candidate set
 
+	//these arrays are used to keep temporary cand and excl;
+	ui* ccache; 
+	ui szcc;
+	ui* rcache;
+	ui szrc;
+
 	void removeFrCand(ui u);
 
 	void addToCand(ui u);
@@ -178,10 +184,7 @@ class EnuBundle
 	clock_t enumclk;
 	
 public:
-	int readRawDIM10Text(const char * filepath);
-	int readRawSNAPText(const char* filePath);
 	int readBinaryGraph(const char * filepath);
-	int writeBinaryGraph(const char * filepath);
 
 	int degeneracyOrder(ui * seq, ui * core, ui * pos);
 	int writeBlockToBin(char * filepath);

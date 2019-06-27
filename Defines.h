@@ -26,8 +26,6 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#define DBGMOD
-
 
 #ifndef DBGMOD
 	#define NDEBUG // must precede cassert to disable assert.
