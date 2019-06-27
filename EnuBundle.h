@@ -107,6 +107,8 @@ class EnuBundle
 	ui* core;
 	ui k;
 	ui lb;
+	ui quite;
+	ui isprint;
 
 	//induced subgraph
 	ui bvtx;
@@ -166,31 +168,31 @@ class EnuBundle
 
 	void stopAsSolution();
 
-	int cntplex;
+	unsigned long long cntplex;
 	set<Solution> allsols;
 
 	unsigned long long nnodes;
 	clock_t startclk;
 	clock_t sortclk;
 	clock_t enumclk;
-	
-public:
-	int readRawDIM10Text(const char * filepath);
-	int readRawSNAPText(const char* filePath);
-	int readBinaryGraph(const char * filepath);
-	int writeBinaryGraph(const char * filepath);
 
-	int degeneracyOrder(ui * seq, ui * core, ui * pos);
-	int writeBlockToBin(char * filepath);
 	int buildBlock(ui v);
-	
-	void enumPlex(ui _k, ui _lb);
-
 	ui checkMaximal(vector<ui>& S, ui * degS);
 
 	void enumBruteforce(vector<ui>& CurS, vector<ui>& CandS, vector<ui>& VisitS, ui * degCur);
 
-	EnuBundle();
+#ifdef DBGMOD
+	int writeBlockToBin(char * filepath);
+#endif
+	int readBinaryGraph(const char * filepath);
+
+public:
+	EnuBundle(char * filename);
+	
+	int degeneracyOrder(ui * seq, ui * core, ui * pos);
+
+	void enumPlex(ui _k, ui _lb, ui _isquite, ui _isprint);
+
 	~EnuBundle();
 };
 

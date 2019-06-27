@@ -10,24 +10,6 @@ using namespace std;
 //#define	SHOWRECUR
 #endif
 
-int EnuBundle::writeBinaryGraph(const char* filepath) {
-	vector<ui> nodes;
-
-	FILE *f = Utility::open_file(filepath, "wb");
-	ui tt = sizeof(ui);
-	fwrite(&tt, sizeof(ui), 1, f); //length of ui
-	fwrite(&n, sizeof(ui), 1, f);
-	fwrite(&m, sizeof(ui), 1, f);
-	ui *degree = new ui[n];
-	for (ui i = 0; i < n; i++)
-		degree[i] = pstart[i + 1] - pstart[i];
-	fwrite(degree, sizeof(ui), n, f);
-	fwrite(edges, sizeof(ui), m, f);
-	fclose(f);
-	return 0;
-}
-
-
 /**
 TODO: reverse[] is not supported.
 */
@@ -62,117 +44,6 @@ int EnuBundle::readBinaryGraph(const char* filepath) {
 	return 0;
 }
 
-/**
-TODO: reverse[] is not supported.
-*/
-int EnuBundle::readRawDIM10Text(const char* filepath) {
-	ifstream infile;
-	char buf[1024];
-	vector<pair<ui, ui> > epairs;
-	vector<ui> nodes;
-	//FILE *f = Utility::open_file(filepath, "r");
-	infile.open(filepath, ios::in);
-	if (!infile.is_open()) {
-		fprintf(stderr, "can not find file %s\n", filepath);
-		exit(1);
-	}
-
-	infile.getline(buf, 1024);
-	while (buf[0] == '%') infile.getline(buf, 1024);
-
-	stringstream ss(buf);
-	int fmt;
-	ss >> n >> m >> fmt;
-	m *= 2;
-	pstart = new ui[n + 1];
-	edges = new ui[m];
-	reverse = new ui[m];
-	ui j = 0;
-	for (ui u = 0; u < n; u++) {
-		pstart[u] = j;
-		infile.getline(buf, 1024);
-		stringstream ss(buf);
-		int nei;
-		while (ss >> nei) {
-			edges[j] = nei - 1;
-			reverse[j] = u;
-			j++;
-		}
-		sort(edges + pstart[u], edges + j);
-	}
-	pstart[n] = j;
-	assert(j == m);
-}
-
-
-int EnuBundle::readRawSNAPText(const char* filepath) {
-	ifstream infile;
-	char buf[1024];
-	vector<pair<ui, ui> > epairs;
-	vector<ui> nodes;
-	//FILE *f = Utility::open_file(filepath, "r");
-	infile.open(filepath, ios::in);
-	if (!infile.is_open()) {
-		fprintf(stderr, "can not find file %s\n", filepath);
-		exit(1);
-	}
-	int max_id = 0;
-	int from, to;
-	while (infile.getline(buf, 1024)) {
-		char *p = buf;
-		while (*p == ' ' && *p != '\0') p++;
-		if (*p == '#' || p == '\0') continue;
-		stringstream ss(buf);
-		ss >> from >> to;
-		//去除自环边
-		if (from != to) {
-			epairs.push_back(make_pair(from, to));
-			epairs.push_back(make_pair(to, from));
-			nodes.push_back(from);
-			nodes.push_back(to);
-		}
-	}
-	infile.close();
-
-	//去除重点
-	sort(nodes.begin(), nodes.end());
-	nodes.erase(unique(nodes.begin(), nodes.end()), nodes.end());
-
-	//去除重边
-	sort(epairs.begin(), epairs.end());
-	epairs.erase(unique(epairs.begin(), epairs.end()), epairs.end());
-
-	//去除孤立点。对剩下的点重新编号。 in p2p-Gnutella04, 10452 is a isolate vertex
-	ui contn = 1;
-	map<ui, ui> idmp;
-	for (ui i = 0; i < nodes.size(); i++) {
-		idmp[nodes[i]] = i;
-		if (nodes[i] != i) {
-			contn = 0;
-		}
-	}
-	if (contn == 0) printf("Node ids are not preserved! \n");
-
-	n = nodes.size();
-	m = epairs.size();
-	printf("n = %s, (undirected) m = %s\n",
-		Utility::integer_to_string(n).c_str(),
-		Utility::integer_to_string(m / 2).c_str());
-
-	pstart = new ui[n + 1];
-	edges = new ui[m];
-	reverse = new ui[m];
-	ui j = 0;
-	for (ui i = 0; i < n; i++) {
-		pstart[i] = j;
-		while (j < m && epairs[j].first == nodes[i]) {
-			edges[j] = idmp[epairs[j].second];
-			reverse[j] = i;
-			++j;
-		}
-	}
-	pstart[n] = j;
-}
 
 int EnuBundle::degeneracyOrder(ui *seq, ui *core, ui* pos) {
 	ui *id_s = seq, *degree = core;
@@ -509,16 +380,12 @@ void EnuBundle::checkSolution() {
 	ui ismax = isGlobalMaximal2();
 	if (ismax) {
 		cntplex++;
-#ifdef SHOWSOL
-		printf("Sol:");
-		for (ui i = 0; i < P.getSize(); i++) {
-			printf("%u ", bID[P.get(i)]);
+		if (isprint) {
+			printf("Sol:");
+			for (ui i = 0; i < P.getSize(); i++) {
+				printf("%u ", bID[P.get(i)]);
+			}
 		}
-		printf("\n");
-		//ui rt = dbgCheckSolution();
-		//if (!rt)
-		//	printf("Wrong solution pause\n");
-#endif
 	}
 }
 
@@ -695,13 +562,17 @@ void EnuBundle::stopAsSolution() {
 	
 }
  
-void EnuBundle::enumPlex(ui _k, ui _lb)
+void EnuBundle::enumPlex(ui _k, ui _lb, ui _isquite, ui _isprint)
 {	
 	startclk = clock();
 	k = _k;
 	lb = _lb;
-	cntplex = 0;
-	
+	quite = _isquite;
+	isprint = _isprint;
+#ifdef SHOWSOL
+	isprint = 1;
+#endif
+	cntplex = 0;	
 	Excl.init(n);
 	P.init(n);
 	Cand.init(n);
@@ -727,11 +598,13 @@ void EnuBundle::enumPlex(ui _k, ui _lb)
 		ui v = dseq[i];
 		if (core[v] +k >= lb ) {
 			int built = buildBlock(v);
-			if (!built) {
-				printf("Vertex %u [%u] discard \n", i, v);
-				continue;
+			if (!quite) {
+				if (!built) {
+					printf("Vertex %u [%u] discard \n", i, v);
+					continue;
+				}
+				printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
 			}
-			printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
 #ifdef SHOWBLK	
 			for (ui i = 0; i < bn; i++) {
 
@@ -785,12 +658,12 @@ void EnuBundle::enumPlex(ui _k, ui _lb)
 			recurSearch(0);
 			//branch();
 #endif// BFSEARCH
-			printf("Node number: %llu\n", nnodes);
+			if (!quite)	printf("Node number: %llu\n", nnodes);
 		}
 	}
 	
 	enumclk = clock();
-	printf("Number of %u-cplex larger than %u:  %u\n", k, lb, cntplex);
+	printf("Number of %u-cplex larger than %u:  %llu\n", k, lb, cntplex);
 	printf("Total search time %.2f\n", Utility::elapse_seconds(startclk, enumclk));
 	printf("Sort time %.2f\n", Utility::elapse_seconds(startclk, sortclk));
 	//printf("Totoal nodes %u \n", nnodes);
@@ -923,18 +796,20 @@ void EnuBundle::enumBruteforce(vector<ui> &CurS, vector<ui> &CandS, vector<ui> &
 }
 #endif
 
-EnuBundle::EnuBundle()
-{
+EnuBundle::EnuBundle(char* filename) {
 	n = 0;
-	m = 0; 
+	m = 0;
 	pstart = nullptr;
 	edges = nullptr;
 	reverse = nullptr;
 	bstart = nullptr;
 	bID = nullptr;
-	bedges = nullptr;	
+	bedges = nullptr;
 	badc = nullptr;
-	binv = nullptr;	
+	binv = nullptr;
+
+	readBinaryGraph(filename);
+	//startclk = clock();
 }
 
 
