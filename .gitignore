@@ -263,3 +263,4 @@ __pycache__/
 /Enplex.h
 *.dll
 *.manifest
+/kbundle.vcxproj
