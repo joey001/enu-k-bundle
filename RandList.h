@@ -43,7 +43,7 @@ public:
 		vpos[vid] = cap; /*set as visited*/
 	}
 	void clear() {			
-		for(ui i = 0; i < cap; i++)
+		for(ui i = 0; i < vnum; i++)
 			vpos[i] = cap;
 		vnum = 0;
 	}
@@ -57,9 +57,18 @@ public:
 	bool empty() { return vnum == 0; }
 	ui getSize() { return vnum; }
 	ui getCap() { return cap; }
+	void dispose() {
+		if (vlist != nullptr) {
+			delete[] vlist;
+			vlist = nullptr;
+		}
+		if (vpos != nullptr) {
+			delete[] vpos;
+			vpos = nullptr;
+		}
+	}
 	~RandList() {
-		delete[] vlist;
-		delete[] vpos;
+		dispose();
 	}
 #ifdef DBGMOD		
 	void printList(FILE *f = stdout) {
@@ -113,7 +122,8 @@ public:
 		twoPow[1 << 15] = 15;
 	}
 	~MBitSet() {
-		delete[] buf;
+		if (buf != nullptr)
+			delete[] buf;
 	}
 	void init(int _n) {
 		m = _n & 31;
@@ -123,6 +133,12 @@ public:
 			buf[i] = 0;		
 		//for (int i = 0; i < 16; ++i)
 		//	twoPow[1 << i] = i;//Ô¤ÏÈËã³ö2^i 
+	}
+	void dispose() {
+		if (buf != nullptr) {
+			delete[] buf;
+			buf = nullptr;
+		}
 	}
 	//FLIP all the bits
 	void flip() {

@@ -1,17 +1,17 @@
 #include "EnuBundle.h"
 #define FILELEN 1024
 //#define TRANSFER
-
+//#include<vld.h>
 void showUsage() {
 	printf("enubundle [-f filename] [-k k] [-t maxsecond]\n");
 }
 int main(int argc, char** argv) {
 	//p2p-Gnutella04,wiki-vote.txt
 	//char filepath[1024] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.graph";
-	char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.bin";
+	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.bin";
 	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\soc-Slashdot0902.bin";
 	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\wiki-Vote.bin";
-	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\email-EuAll.bin";
+	char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\email-EuAll.bin";
 	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\amazon0505.bin";
 	//char filepath[1024] = "graph1.bin";
 	//char filepath[1024] = "graph2.bin";
@@ -33,10 +33,11 @@ int main(int argc, char** argv) {
 			maxsec = atoi(argv[i + 1]);
 		}
 	}
+
 	EnuBundle enbundle;
 	enbundle.readBinaryGraph(filepath);
 	enbundle.enumPlex(k,lb,maxsec);
-
+	//_CrtDumpMemoryLeaks();
 	return 0;
 }
 

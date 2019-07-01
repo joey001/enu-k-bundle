@@ -7,13 +7,10 @@
 //#define SHOWRECUR
 #endif
 
-
 #include <fstream>
 #include "EnuBundle.h"
 #include "Utility.h"
 using namespace std;
-
-
 
 /**
 TODO: reverse[] is not supported.
@@ -104,29 +101,40 @@ int EnuBundle::buildBlock(ui v) {
 	bmark[v] = 1;
 	bvtx = v;
 	bn = 1;
-	vector<ui> nei1s;
-	vector<ui> blkset;
+	//vector<ui> nei1s;
+	szc1 = 0;
+	//vector<ui> blkset;
+	szc2 = 0; //all vertex in the block
 	for (ui j = pstart[v]; j < pstart[v + 1]; j++) {
 		ui nei = edges[j];
 		if (!bmark[nei] && dpos[nei] > dpos[v]) {
 			bmark[nei] = 1;	//N(v)
-			blkset.push_back(nei);
-			nei1s.push_back(nei);
+			//blkset.emplace_back(nei);
+			//nei1s.emplace_back(nei);
+			cache1[szc1++] = nei;
+			cache2[szc2++] = nei;
 			bn++;
 		}
 	}	
-	for (auto u : nei1s) {
+	for (ui i = 0; i < szc1; i++) {
+		ui u = cache1[i];
+	//for (auto u:nei1s){
 		for (ui k = pstart[u]; k < pstart[u + 1]; k++) {
 			ui nei2 = edges[k];
 			if (!bmark[nei2] && dpos[nei2] > dpos[v]) {
 				bmark[nei2] = 2; //N2(v)
-				blkset.push_back(nei2);
+				if (bvtx == 47074 && nei2 == 146)
+					printf("pause\n");
+				//blkset.emplace_back(nei2);
+				cache2[szc2++] = nei2;
 				bn++;
 			}
 		}
 	}
 	//size pruning
-	for (ui u : blkset) {
+	for (ui i = 0; i < szc2; i++) {
+		ui u = cache2[i];
+	//for(auto u: blkset){
 		if (bmark[u]) {
 			//set<ui> vnei(edges + pstart[v], edges + pstart[v + 1]);
 			//caclculate intersections
@@ -262,37 +270,55 @@ int EnuBundle::canMoveToP(ui u) {
 	}
 	return 1;	
 }
-
+/*
 void EnuBundle::updateSatSet() {
 	satInP.clear();
 	for (ui i = 0; i < P.getSize(); i++) {
 		ui u = P.get(i);
 		if (neiInP[u] + k == P.getSize())
-			satInP.insert(u);
+			satInP.add(u);
 	}
-}
+}*/
 
-
-int EnuBundle::isGlobalMaximal() {
-	vector<ui> candidates;
-	ui init = 0;
-	updateSatSet();
-	if (!satInP.empty()) {
-		for (auto u : satInP) {
-			ui oru = bID[u];
-			if (!init) {
-				candidates.insert(candidates.begin(), edges + pstart[oru], edges + pstart[oru + 1]);
-				init = 1;
-			}
-			else {
-				//vector<ui> tmp;
-				set_intersection(edges + pstart[oru], edges + pstart[oru + 1], candidates.begin(), candidates.end(), std::back_inserter(candidates));
-				//candidates = tmp;
-			}
+/**
+lst1 and lst2 must be sorted
+*/
+ui EnuBundle::interSection(ui *lst1, ui sz1, ui *lst2, ui sz2, ui* dest) {
+	ui i = 0, j = 0;
+	ui szdest = 0;
+	while (i < sz1 && j < sz2) {
+		if (lst1[i] < lst2[j]) ++i;
+		else if (lst1[i] > lst2[j])++j;
+		else {
+			dest[szdest++] = lst1[i];
+			i++, j++;
 		}
 	}
-	if (!satInP.empty()) {
-		for (auto oru : candidates) {
+	return szdest;
+}
+
+int EnuBundle::isGlobalMaximal() {
+	//vector<ui> candidates;
+	ui init = 0;
+	szc1= 0; //saturated vertices
+	//updateSatSet();
+	//if (!satInP.empty()) {
+	for (ui i = 0; i < P.getSize(); i++) {
+		if (neiInP[P.get(i)] + k == P.getSize()) {
+			cache1[szc1++] = P.get(i);
+		}
+	}
+	if (szc1 != 0) {		
+		ui orsat0 = bID[cache1[0]];
+		szc2 = pstart[orsat0 + 1] - pstart[orsat0];
+		copy(edges + pstart[orsat0], edges + pstart[orsat0 + 1], cache2);		
+		for (ui i = 1; i < szc1; i++) {
+			ui orsat_i = bID[cache1[i]];
+			szc2 = interSection(edges + pstart[orsat_i], pstart[orsat_i + 1] - pstart[orsat_i],
+				cache2, szc2, cache2);
+		}
+		for (ui i = 0; i < szc2; i++) {
+			ui oru = cache2[i];
 			if (dpos[oru] < dpos[bvtx] && canGloablaAdd(oru)) {
 				return 0;
 			}
@@ -300,46 +326,40 @@ int EnuBundle::isGlobalMaximal() {
 		return 1;
 	}
 	else {
-		return isGlobalMaximal2();
+		for (ui i = 0; i < dpos[bvtx]; i++) {
+			ui u = dseq[i];
+			if (core[u] + k >= P.getSize() + 1 &&  canGloablaAdd(u))
+				return 0;
+		}
+		return 1;
 	}
 }
+//Prerequist, oru is adjacent to all saturated vertices in P.
+//Check the  |P\cup N(oru)| > |P|+1-k
 int EnuBundle::canGloablaAdd(ui oru) {
-	if (core[oru] + k < P.getSize() + 1)
-		return 0; //can not add
-	int scon = 0;
-	int pcon = 0;
+	//int scon = 0;
+	int pcon = 0;	
 	for (ui j = pstart[oru]; j < pstart[oru + 1]; j++) {
 		ui nei = edges[j];
 		if (bmark[nei]) {
-			ui idInBlk = nID[nei];
-			if (P.contains(idInBlk)) {
+			//ui idInBlk = nID[nei];
+			if (P.contains(nID[nei])) {
 				pcon++;
-				if (satInP.find(idInBlk) != satInP.end())
-					scon++;
+				//if (satInP.find(idInBlk) != satInP.end())
+				//	scon++;
 			}
 		}
 	}
-	if (scon == satInP.size() && pcon + k >= P.getSize() + 1)
+	if (pcon + k >= P.getSize() + 1)
 		return 1; //can add
 	return 0;	//can not add
-}
-//TODO
-int EnuBundle::isGlobalMaximal2() {
-	updateSatSet();
-	for (ui i = 0; i < dpos[bvtx]; i++) {		
-		ui u = dseq[i];		
-		if (canGloablaAdd(u))
-			return 0;
-	}
-	//printf("SAT vs P %u: %u\n", sat.size(), P.getSize());
-	return 1;
 }
 
 /**
 A stronger branch rules
 Move at most szmax vertices from doing to P.
 */
-void EnuBundle::recurSearch(vector<ui> &doing, ui szmax) {
+void EnuBundle::multiRecurSearch(vector<ui> &doing, ui szmax) {
 	vector<ui> rcand;
 	vector<ui> rexcl;
 	assert(szmax < doing.size());
@@ -364,33 +384,33 @@ void EnuBundle::recurSearch(vector<ui> &doing, ui szmax) {
 			printf("Add %u\n", ubr);
 #endif
 			//vector<ui> tmpcand;
-			szcc = 0;
+			szc1 = 0;
 			//update candidate,
 			//WARNING: iterator of Cand(Excl) will be invalid if it is deleted
 			for (ui j = 0; j < Cand.getSize(); j++) {
 				ui u = Cand.get(j);
 				if (!canMoveToP(u)) {
 					//tmpcand.push_back(u);					
-					ccache[szcc++] = u;
+					cache1[szc1++] = u;
 				}
 			}
-			for (ui i = 0; i < szcc; i++) {
-				removeFrCand(ccache[i]);
+			for (ui i = 0; i < szc1; i++) {
+				removeFrCand(cache1[i]);
 			}
-			rcand.insert(rcand.end(), ccache, ccache+szcc);
+			rcand.insert(rcand.end(), cache1, cache1+szc1);
 			//update excl
-			szrc = 0;
+			szc2 = 0;
 			for (ui j = 0; j < Excl.getSize(); j++) {
 				ui u = Excl.get(j);
 				if (!canMoveToP(u)) {
 					//tmpexcl.push_back(u);
-					rcache[szrc++] = u;
+					cache2[szc2++] = u;
 				}
 			}
-			for (ui i = 0; i < szrc; i++) {
-				Excl.remove(rcache[i]);
+			for (ui i = 0; i < szc2; i++) {
+				Excl.remove(cache2[i]);
 			}
-			rexcl.insert(rexcl.end(), rcache, rcache+szrc);
+			rexcl.insert(rexcl.end(), cache2, cache2+szc2);
 		}
 		
 		//remove the last vertex all the remaining vertex;
@@ -422,7 +442,7 @@ void EnuBundle::recurSearch(vector<ui> &doing, ui szmax) {
 			for (ui j = idx; j < doing.size(); j++) {
 				if (Cand.contains(doing[j])) { //not reduced, we need to recover
 					removeFrCand(doing[j]);
-					doreduced.push_back(doing[j]);
+					doreduced.emplace_back(doing[j]);
 #ifdef SHOWRECUR
 					printf("Remove %u \n", doing[j]);
 #endif
@@ -457,6 +477,13 @@ void EnuBundle::recurSearch(vector<ui> &doing, ui szmax) {
 	}
 }
 
+/**
+TODO:
+move start into solution and continue the search
+*/
+void EnuBundle::multiRecurSearch(ui start) {
+
+}
 /*
 * Take a vertex start from cand and continue the search
 */
@@ -475,7 +502,7 @@ void EnuBundle::recurSearch(ui start) {
 	for (ui i = 0; i < Cand.getSize(); i++) {
 		ui u = Cand.get(i);
 		if (!canMoveToP(u)) {			
-			rcand.push_back(u);
+			rcand.emplace_back(u);
 		}
 	}
 
@@ -486,7 +513,7 @@ void EnuBundle::recurSearch(ui start) {
 	for (ui i = 0; i < Excl.getSize(); i++) {
 		ui u = Excl.get(i);
 		if (!canMoveToP(u))
-			rexcl.push_back(u);
+			rexcl.emplace_back(u);
 	}
 	for (auto u: rexcl) {
 		Excl.remove(u);
@@ -505,7 +532,7 @@ void EnuBundle::recurSearch(ui start) {
 
 
 void EnuBundle::checkSolution() {
-	ui ismax = isGlobalMaximal2();
+	ui ismax = isGlobalMaximal();
 	if (ismax) {
 		cntplex++;
 #ifdef SHOWSOL
@@ -568,7 +595,7 @@ ui EnuBundle::dbgCheckSolution() {
 	//check uniqueness
 	vector<ui> vecsol;
 	for (ui i = 0; i < P.getSize(); i++) {
-		vecsol.push_back(bID[P.get(i)]);
+		vecsol.emplace_back(bID[P.get(i)]);
 	}
 	Solution sol(vecsol);
 	if (allsols.find(sol) != allsols.end()) {
@@ -587,7 +614,7 @@ void EnuBundle::stopAsSolution() {
 	vector<ui> rexcl;
 	//nnodes++;
 	for (ui i = 0; i < Cand.getSize(); i++)
-		rcand.push_back(Cand.get(i));
+		rcand.emplace_back(Cand.get(i));
 
 	for (auto u : rcand) {
 		CandToP(u);
@@ -595,7 +622,7 @@ void EnuBundle::stopAsSolution() {
 	for (ui i = 0; i < Excl.getSize(); i++) {
 		ui u = Excl.get(i);
 		if (!canMoveToP(u)) {
-			rexcl.push_back(u);
+			rexcl.emplace_back(u);
 		}
 	}
 #ifdef SHOWRECUR
@@ -620,6 +647,9 @@ void EnuBundle::stopAsSolution() {
 	}
 }
 
+/*
+ubr: suggestion a vertex for branch
+*/
  void EnuBundle::branch() {
 	nnodes++;
 #ifdef SHOWRECUR
@@ -679,10 +709,10 @@ void EnuBundle::stopAsSolution() {
 		for (ui i = 0; i < Cand.getSize(); i++) {
 			ui u = Cand.get(i);
 			if (u != minu && !badc[minu].test(u))
-				doing.push_back(u);
+				doing.emplace_back(u);
 		}
 		assert(szmax < doing.size());
-		recurSearch(doing, szmax);
+		multiRecurSearch(doing, szmax);
 	}
 	else {
 		for (ui i = 0; i < Cand.getSize(); i++) {
@@ -716,13 +746,13 @@ void EnuBundle::stopAsSolution() {
 			for (ui i = 0; i < Cand.getSize(); i++) {
 				ui u = Cand.get(i);
 				if (u != minu && !badc[minu].test(u))
-					doing.push_back(u);
+					doing.emplace_back(u);
 			}
 			assert(szmax < doing.size());
-			recurSearch(doing, szmax);
+			multiRecurSearch(doing, szmax);
 		}
 		else { //minu in Cand
-			//The first branch add minu to Cand
+			//The first branch add minu to P
 #ifdef SHOWRECUR
 			printf("Add %u to P\n", minu);
 #endif
@@ -734,7 +764,7 @@ void EnuBundle::stopAsSolution() {
 #ifdef SHOWRECUR
 			printf("Remove %u\n", minu);
 #endif
-			branch();
+			branch(); 
 			Excl.remove(minu);
 			addToCand(minu);
 
@@ -770,10 +800,10 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 	
 	badc = new MBitSet[min(maxcore*maxcore, n)];
 	//binv = new MBitSet[min(maxcore*maxcore, n)];
-	ccache = new ui[min(maxcore*maxcore, n)];
-	szcc = 0;
-	rcache = new ui[min(maxcore*maxcore, n)];
-	szrc = 0;
+	cache1 = new ui[n];
+	szc1 = 0;
+	cache2 = new ui[n];
+	szc2 = 0;
 
 	for (ui i = 0; i < n - 1; i++) {		
 		ui v = dseq[i];
@@ -836,6 +866,9 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 			nnodes = 0;
 			recurSearch(0);
 			//branch();
+			//Clear block
+			for (ui i = 0; i < bn; i++) 
+				badc[i].dispose();
 #endif// BFSEARCH
 			printf("Node number: %llu\n\n", nnodes);
 		}
@@ -847,133 +880,6 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 	printf("Sort time %.2f\n", Utility::elapse_seconds(startclk, sortclk));
 	//printf("Totoal nodes %u \n", nnodes);
 }
-#ifdef BFSEARCH
-ui EnuBundle::checkMaximal(vector<ui> &S, ui* degS) {
-	set<ui> sat;
-	for (auto u: S) {
-		if (degS[u] + k == S.size())
-			sat.insert(u);
-	}
-	for (ui i = 0; i < dpos[bvtx]; i++) {
-		ui u = dseq[i];
-		int scon = 0;
-		int pcon = 0;
-		for (ui j = pstart[u]; j < pstart[u + 1]; j++) {
-			ui nei = edges[j];
-			//TODO:WRONG
-			ui nidInBlk = dpos[nei] - dpos[bvtx];
-			if (dpos[nei] >= dpos[bvtx] && binary_search(S.begin(), S.end(), nidInBlk)) //nidBilk is in S
-				pcon++;
-			if (sat.find(nidInBlk) != sat.end())
-				scon++;
-		}
-		if (scon == sat.size() && pcon + k - 1 >= S.size())
-			return 0;
-	}
-	return 1;
-
-}
-void EnuBundle::enumBruteforce(vector<ui> &CurS, vector<ui> &CandS, vector<ui> &VisitS, ui* degCur) {
-	nnodes++;
-#ifdef SHOWRECUR
-	printf("-------Nodes: %u-------------\n", nnodes);
-	printf("P:");
-	for (auto u : CurS)
-		printf("%u ", u);
-	printf("\nCand:");
-	for (auto u : CandS)
-		printf("%u ", u);
-	printf("\nExcl:");
-	for (auto u : VisitS)
-		printf("%u ", u);
-	printf("\n");
-#endif
-	if (CandS.empty() && VisitS.empty()) {
-		if (checkMaximal(CurS, degCur)) {
-			cntplex++;
-#ifdef SHOWSOL
-			printf("SOL:");
-			for (auto u : CurS)
-				printf("%u ", bID[u]);
-			printf("\n");
-#endif
-		}
-	}
-	
-	while(!CandS.empty()) {
-		ui c = CandS.back();
-		CandS.pop_back();
-
-		CurS.push_back(c);
-
-		for (ui i = bstart[c]; i < bstart[c+1]; i++) {
-			ui u = bedges[i];
-			degCur[u]++;
-		}
-		//Update sat
-		vector<ui> sat;
-		if (degCur[c] +k == CurS.size()) {
-			sat.push_back(c);
-		}
-		for (auto v: CurS) {	
-			if (v!= c && degCur[v] + k == CurS.size())
-				sat.push_back(v);
-		}
-		
-
-		vector<ui> newCand;
-		vector<ui> newVisit;		
-		for (auto u : CandS) {			
-			if (degCur[u] + k< CurS.size()) {				
-				continue;
-			}
-			ui keep = 1;
-			for (auto s : sat) {
-				if (!badc[u].test(s)) {
-					keep = 0;
-					break;
-				}
-			}
-			if (keep)
-				newCand.push_back(u);
-		}
-		for (auto u : VisitS) {
-			if (degCur[u] + k < CurS.size())
-				continue;
-			ui keep = 1;
-			for (auto s : sat) {
-				if (!badc[u].test(s)) {
-					keep = 0;
-					break;
-				}
-			}
-			if (keep)
-				newVisit.push_back(u);
-		}
-
-		//prune
-		if (newCand.size() + CurS.size() < lb) {
-#ifdef SHOWRECUR
-			printf("Prune by size < lb\n");
-#endif // DEBUG
-			//return;
-		}
-		else {
-
-			enumBruteforce(CurS, newCand, newVisit, degCur);
-		}
-		//remove c from P
-		CurS.pop_back();
-		for (ui i = bstart[c]; i < bstart[c + 1]; i++) {
-			ui u = bedges[i];
-			degCur[u]--;
-		}
-
-		VisitS.push_back(c);
-	}
-
-}
-#endif
 
 EnuBundle::EnuBundle()
 {
@@ -998,5 +904,19 @@ EnuBundle::~EnuBundle()
 		delete[] edges;
 	if (reverse != nullptr)
 		delete[] reverse;
+	delete[] dseq;
+	delete[] dpos;
+	delete[] core;
+	delete[] bmark;
+	delete[] bID;
+	delete[] nID;
+	delete[] bstart;
+	delete[] bedges;
+	delete[] badc;
+	//delete binv;
+	delete[] neiInG;
+	delete[] neiInP;
+	delete[] cache1;
+	delete[] cache2;
 }
 

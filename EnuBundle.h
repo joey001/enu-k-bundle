@@ -123,7 +123,8 @@ class EnuBundle
 	RandList P;		//current solution
 	RandList Cand;
 	RandList Excl;
-	set<ui> satInP;
+	//set<ui> satInP;
+	RandList satInP;
 
 	ui* neiInP; // neiInP[u] is the number of neighbors in P	
 	ui* neiInG; //number of neibors in the graph induced by G[P\cup Cand]	
@@ -132,10 +133,10 @@ class EnuBundle
 	//void backToCand(int v); //Move a vertex back to candidate set
 
 	//these arrays are used to keep temporary cand and excl;
-	ui* ccache; 
-	ui szcc;
-	ui* rcache;
-	ui szrc;
+	ui* cache1; 
+	ui szc1;
+	ui* cache2;
+	ui szc2;
 
 	void removeFrCand(ui u);
 
@@ -143,11 +144,11 @@ class EnuBundle
 
 	int canMoveToP(ui u);
 
-	void updateSatSet();
+	//void updateSatSet();
 
-	int isGlobalMaximal2();
+	ui interSection(ui * lst1, ui sz1, ui * lst2, ui sz2, ui * dest);
 
-	void recurSearch(vector<ui> &doing, ui szmax);
+	void multiRecurSearch(vector<ui> &doing, ui szmax);
 
 	int canGloablaAdd(ui oru);
 
@@ -164,6 +165,8 @@ class EnuBundle
 	int isGlobalMaximal();
 
 	void branch();
+
+	void multiRecurSearch(ui start);
 
 	void recurSearch(ui start);
 
@@ -191,9 +194,9 @@ public:
 	
 	void enumPlex(ui _k, ui _lb, ui maxsec);
 
-	ui checkMaximal(vector<ui>& S, ui * degS);
+	//ui checkMaximal(vector<ui>& S, ui * degS);
 
-	void enumBruteforce(vector<ui>& CurS, vector<ui>& CandS, vector<ui>& VisitS, ui * degCur);
+	//void enumBruteforce(vector<ui>& CurS, vector<ui>& CandS, vector<ui>& VisitS, ui * degCur);
 
 	EnuBundle();
 	~EnuBundle();
