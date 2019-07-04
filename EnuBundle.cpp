@@ -740,19 +740,20 @@ ubr: suggestion a vertex for branch
 
 	//find mindeg 
 	ui minu = bn;
+	/*
 	for (ui u = 0; u < bn; u++) {			
 		if (Cand.contains(u) || P.contains(u)) {
 			if(minu == bn || neiInG[u] < neiInG[minu])
 				minu = u;
 		}
 	}
-	/*
+	*/
 	for (ui i = 0; i < P.getSize(); i++) {
 		ui u = P.get(i);
 		if (minu == bn || neiInG[u] < neiInG[minu]) {
 			minu = u;
 		}
-	}*/
+	}
 	
 	if (neiInG[minu] + k < Cand.getSize() + P.getSize()) { // The whole graph can not be a k-plex
 		ui szmax = k + neiInP[minu] - P.getSize();
