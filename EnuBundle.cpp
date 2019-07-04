@@ -94,48 +94,43 @@ int EnuBundle::writeBlockToBin(char* filepath) {
 #else
 int EnuBundle::writeBlockToBin(char* filepath) {}
 #endif
-
-int EnuBundle::buildBlock(ui v) {
-	//mark all the inducing vertices
-	memset(bmark, (ui)0, sizeof(ui)* n);
-	bmark[v] = 1;
-	bvtx = v;
-	bn = 1;
+ui EnuBundle::markBlock1(ui v, ui* adress) {
+	memset(dist, (ui)0, sizeof(ui)* n);
+	dist[v] = 1;
+	ui szblk = 1;
 	//vector<ui> nei1s;
 	szc1 = 0;
 	//vector<ui> blkset;
 	szc2 = 0; //all vertex in the block
 	for (ui j = pstart[v]; j < pstart[v + 1]; j++) {
 		ui nei = edges[j];
-		if (!bmark[nei] && dpos[nei] > dpos[v]) {
-			bmark[nei] = 1;	//N(v)
+		if (!dist[nei] && dpos[nei] > dpos[v]) {
+			dist[nei] = 1;	//N(v)
 			//blkset.emplace_back(nei);
 			//nei1s.emplace_back(nei);
 			cache1[szc1++] = nei;
 			cache2[szc2++] = nei;
-			bn++;
+			szblk++;
 		}
-	}	
+	}
 	for (ui i = 0; i < szc1; i++) {
 		ui u = cache1[i];
-	//for (auto u:nei1s){
+		//for (auto u:nei1s){
 		for (ui k = pstart[u]; k < pstart[u + 1]; k++) {
 			ui nei2 = edges[k];
-			if (!bmark[nei2] && dpos[nei2] > dpos[v]) {
-				bmark[nei2] = 2; //N2(v)
-				if (bvtx == 47074 && nei2 == 146)
-					printf("pause\n");
+			if (!dist[nei2] && dpos[nei2] > dpos[v]) {
+				dist[nei2] = 2; //N2(v)
 				//blkset.emplace_back(nei2);
 				cache2[szc2++] = nei2;
-				bn++;
+				szblk++;
 			}
 		}
 	}
 	//size pruning
 	for (ui i = 0; i < szc2; i++) {
 		ui u = cache2[i];
-	//for(auto u: blkset){
-		if (bmark[u]) {
+		//for(auto u: blkset){
+		if (dist[u]) {
 			//set<ui> vnei(edges + pstart[v], edges + pstart[v + 1]);
 			//caclculate intersections
 			ui cnt = 0;
@@ -148,44 +143,102 @@ int EnuBundle::buildBlock(ui v) {
 					p2++;
 				}
 				else {//equal
-					if (bmark[edges[p1]]) {
+					if (dist[edges[p1]]) {
 						cnt++;
 					}
 					p1++, p2++;
 				}
 			}
-			if (bmark[u] == 1) {
+			if (dist[u] == 1) {
 				if (cnt + 2 * k < lb) {
-					bmark[u] = 0;
+					dist[u] = 0;
 					//canprune = 1;
-					bn--;
-				}
-			}else{
-				if (cnt + 2 * k - 2 < lb) {
-					bmark[u] = 0;
-					//canprune = 1;
-					bn--;
+					szblk--;
 				}
 			}
-			
+			else {
+				if (cnt + 2 * k - 2 < lb) {
+					dist[u] = 0;
+					//canprune = 1;
+					szblk--;
+				}
+			}
+
 		}
 	}
-		//renumber the vertices, bid[x] is the new number of vertex x
-	if (bn < lb) {
-		//delete[] bmark;
-		return 0;
+	ui cnt = 0;
+	adress[cnt++] = v;
+	for (ui i = 0; i < szc2; i++) {
+		if (cache2[i]!=v &&dist[cache2[i]] != 0 )
+			adress[cnt++] = cache2[i];
 	}
-	ui cnt = 0;	
+	assert(cnt == szblk);
+	return cnt;
+}
+
+
+ui EnuBundle::markBlock2(ui v, ui* adress) {
+
+	memset(dist, (ui)n, sizeof(ui)*n);
+	memset(common, (ui)0, sizeof(ui)*n);
+	
+	szc1 = 0;
+	for (ui i = pstart[v]; i < pstart[v + 1]; i++) {
+		ui u = edges[i];		
+		if (dpos[u] > dpos[v]) {
+			dist[u] = 1;
+			cache1[szc1++] = u;
+		}
+	}
+
+	szc2 = 0;
+	for (ui i = 0; i < szc1; i++) {
+		ui u = cache1[i];
+		for (ui j = pstart[u]; j < pstart[u + 1]; j++) {
+			ui w = edges[j];
+			if (w != v && dpos[w] > dpos[v]) {
+				if (dist[w] == 1) {
+					common[u]++;
+				}
+				else if (dist[w] == 2) {
+					common[w]++;
+				}
+				else{
+					common[w]++;					
+					dist[w] = 2;
+					cache2[szc2++] = w;
+				}
+			}
+		}
+	}
+	ui szblk = 0;
+	adress[szblk++] = v;
+	for (ui i = 0; i < szc1; i++) {
+		if (common[cache1[i]] + 2 * k >= lb) 
+			adress[szblk++] = cache1[i];
+	}
+	for (ui i = 0; i < szc2; i++) {
+		if (common[cache2[i]] + 2 * k - 2 >= lb)
+			adress[szblk++] = cache2[i];
+	}
+
+	return szblk;
+}
+
+inline ui EnuBundle::isInBlock(ui vtx) {
+	return nID[vtx] < bn;
+}
+int EnuBundle::buildBlock(ui v, ui *blk, ui sz) {
+	bvtx = v; // the start vertex
+	bn = sz;	// the size
+
 	memset(bID, n, sizeof(ui)*n);
-	memset(nID, n, sizeof(ui)*n);
-	for (ui j = dpos[v]; j < n; j++) {
-		if (bmark[dseq[j]]) {
-			bID[cnt] = dseq[j];
-			nID[dseq[j]] = cnt;
-			cnt++;
-		}
+	memset(nID, n, sizeof(ui)*n);	
+	for (ui i = 0; i < sz; i++) {
+		bID[i] = blk[i];
+		nID[blk[i]] = i;
 	}
-	assert(cnt == bn);
+
 	//initialize the subgraph	
 	/*if (bstart != nullptr) delete[] bstart;
 	if (bedges != nullptr) delete[] bedges;	
@@ -200,7 +253,7 @@ int EnuBundle::buildBlock(ui v) {
 		//binv[j].init(bn);
 		bstart[j] = bm;
 		for (ui k = pstart[oruid]; k < pstart[oruid + 1]; k++) {
-			if (bmark[edges[k]]) {
+			if (isInBlock(edges[k])) {
 				bedges[bm++] = nID[edges[k]];
 				badc[j].set(nID[edges[k]]);
 			}
@@ -341,13 +394,8 @@ int EnuBundle::canGloablaAdd(ui oru) {
 	int pcon = 0;	
 	for (ui j = pstart[oru]; j < pstart[oru + 1]; j++) {
 		ui nei = edges[j];
-		if (bmark[nei]) {
-			//ui idInBlk = nID[nei];
-			if (P.contains(nID[nei])) {
+		if (isInBlock(nei) && P.contains(nID[nei])) {
 				pcon++;
-				//if (satInP.find(idInBlk) != satInP.end())
-				//	scon++;
-			}
 		}
 	}
 	if (pcon + k >= P.getSize() + 1)
@@ -536,14 +584,15 @@ void EnuBundle::checkSolution() {
 	if (ismax) {
 		cntplex++;
 #ifdef SHOWSOL
-		printf("Sol:");
+	/*	printf("Sol:");
 		for (ui i = 0; i < P.getSize(); i++) {
 			printf("%u ", bID[P.get(i)]);
 		}
 		printf("\n");
-		//ui rt = dbgCheckSolution();
-		//if (!rt)
-		//	printf("Wrong solution pause\n");
+	*/
+		ui rt = dbgCheckSolution();
+		if (!rt)
+			printf("Wrong solution pause\n");
 #endif
 	}
 }
@@ -572,13 +621,13 @@ ui EnuBundle::dbgCheckSolution() {
 	}
 	//check maximality
 	for (ui u = 0; u < n; u++) {
-		if (bmark[u] && P.contains(nID[u])) continue;// in subgraph
+		if (isInBlock(u) && P.contains(nID[u])) continue;// in subgraph
 		if (core[u] + k >= P.getSize() + 1) {
 			int scon = 0;
 			int pcon = 0;
 			for (ui j = pstart[u]; j < pstart[u + 1]; j++) {
 				ui nei = edges[j];
-				if (bmark[nei]) {
+				if (isInBlock(nei)) {
 					ui idInBlk = nID[nei];
 					if (P.contains(idInBlk))
 						pcon++;
@@ -691,18 +740,20 @@ ubr: suggestion a vertex for branch
 
 	//find mindeg 
 	ui minu = bn;
-	/*for (ui u = 0; u < bn; u++) {			
+	for (ui u = 0; u < bn; u++) {			
 		if (Cand.contains(u) || P.contains(u)) {
 			if(minu == bn || neiInG[u] < neiInG[minu])
 				minu = u;
 		}
-	}*/
+	}
+	/*
 	for (ui i = 0; i < P.getSize(); i++) {
 		ui u = P.get(i);
 		if (minu == bn || neiInG[u] < neiInG[minu]) {
 			minu = u;
 		}
-	}
+	}*/
+	
 	if (neiInG[minu] + k < Cand.getSize() + P.getSize()) { // The whole graph can not be a k-plex
 		ui szmax = k + neiInP[minu] - P.getSize();
 		vector<ui> doing;
@@ -793,25 +844,32 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 	sortclk = clock();
 		//build subgraph		
 	nID = new ui[n];
-	bmark = new ui[n];
 	bID = new ui[n];
 	bstart = new ui[n+1];
 	bedges = new ui[m];
 	
 	badc = new MBitSet[min(maxcore*maxcore, n)];
 	//binv = new MBitSet[min(maxcore*maxcore, n)];
+	dist = new ui[n];
+	common = new ui[n];
 	cache1 = new ui[n];
 	szc1 = 0;
 	cache2 = new ui[n];
 	szc2 = 0;
+	cache3 = new ui[n];
+	szc3 = 0;
 
 	for (ui i = 0; i < n - 1; i++) {		
 		ui v = dseq[i];
 		if (core[v] +k >= lb ) {
-			int built = buildBlock(v);
-			if (!built) {
+			//ui sz = markBlock(v);
+			ui sz = markBlock1(v, cache3); // don't use cache1 and cache3 as return adress
+			if (sz < lb) {
 				//printf("Vertex %u [%u] discard \n", i, v);
 				continue;
+			}
+			else {
+				buildBlock(v, cache3, sz);
 			}
 			printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
 #ifdef SHOWBLK	
@@ -907,8 +965,6 @@ EnuBundle::~EnuBundle()
 	delete[] dseq;
 	delete[] dpos;
 	delete[] core;
-	delete[] bmark;
-	delete[] bID;
 	delete[] nID;
 	delete[] bstart;
 	delete[] bedges;

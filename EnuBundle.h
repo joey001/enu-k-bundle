@@ -110,7 +110,9 @@ class EnuBundle
 
 	//induced subgraph
 	ui bvtx;
-	ui *bmark;
+	ui *dist;
+	ui *common;
+	//ui *bmark;
 	ui* bID; //bID[x] is the original vertex id of x in block(v)
 	ui* nID;// nID[u] is the new id of u in G
 	ui* bstart;
@@ -137,6 +139,8 @@ class EnuBundle
 	ui szc1;
 	ui* cache2;
 	ui szc2;
+	ui* cache3;
+	ui szc3;
 
 	void removeFrCand(ui u);
 
@@ -160,7 +164,13 @@ class EnuBundle
 
 	void PToCand(ui u);
 
-	int buildBlock(ui v);
+	ui markBlock1(ui v, ui * adress);
+
+	ui markBlock2(ui v, ui* address);
+
+	inline ui isInBlock(ui vtx);
+
+	int buildBlock(ui v, ui* blk, ui sz);
 
 	int isGlobalMaximal();
 
@@ -191,6 +201,8 @@ public:
 
 	int degeneracyOrder(ui * seq, ui * core, ui * pos);
 	int writeBlockToBin(char * filepath);
+
+
 	
 	void enumPlex(ui _k, ui _lb, ui maxsec);
 
