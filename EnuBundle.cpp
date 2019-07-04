@@ -412,6 +412,8 @@ void EnuBundle::multiRecurSearch(vector<ui> &doing, ui szmax) {
 	vector<ui> rexcl;
 	assert(szmax < doing.size());
 	assert(szmax > 0 && szmax < k);
+
+
 	if (Cand.getSize() + P.getSize() < lb) { // prune
 		return;
 	}
@@ -700,6 +702,10 @@ void EnuBundle::stopAsSolution() {
 ubr: suggestion a vertex for branch
 */
  void EnuBundle::branch() {
+	 if (interrupt || (double)(clock() - sortclk) / CLOCKS_PER_SEC > maxsec) {
+		 interrupt = 1;
+		 return;
+	 }
 	nnodes++;
 #ifdef SHOWRECUR
 	printf("-------Nodes: %u-------------\n", nnodes);
@@ -746,51 +752,17 @@ ubr: suggestion a vertex for branch
 				minu = u;
 		}
 	}
-	/*
-	for (ui i = 0; i < P.getSize(); i++) {
-		ui u = P.get(i);
-		if (minu == bn || neiInG[u] < neiInG[minu]) {
-			minu = u;
-		}
-	}*/
-	
-	if (neiInG[minu] + k < Cand.getSize() + P.getSize()) { // The whole graph can not be a k-plex
-		ui szmax = k + neiInP[minu] - P.getSize();
-		vector<ui> doing;
-		for (ui i = 0; i < Cand.getSize(); i++) {
-			ui u = Cand.get(i);
-			if (u != minu && !badc[minu].test(u))
-				doing.emplace_back(u);
-		}
-		assert(szmax < doing.size());
-		multiRecurSearch(doing, szmax);
-	}
-	else {
-		for (ui i = 0; i < Cand.getSize(); i++) {
-			ui u = Cand.get(i);
-			if (neiInG[u] < neiInG[minu]) {
-				minu = u;
-			}
-		}
-		//Now, minu is the minimum degree vertex of G[P\cup C]
-		if (neiInG[minu] >= Cand.getSize() + P.getSize() - k) {
-			//The whole graph is a k-plex
-			stopAsSolution();
+	if (neiInG[minu] + k >= Cand.getSize() + P.getSize()) {
+		//The whole graph is a k-plex
+		stopAsSolution();
 #ifdef SHOWRECUR
-			printf("G is a k-plex. Backtrack.\n");
-			printf("--------BK-------------\n");
+		printf("G is a k-plex. Backtrack.\n");
+		printf("--------BK-------------\n");
 #endif
+		return;
+	}else{// The whole graph can not be a k-plex
+		if (Cand.getSize() + P.getSize() <= lb)
 			return;
-		}
-		else if (Cand.getSize() + P.getSize() <= lb) {
-#ifdef SHOWRECUR
-			// the whole graph, which is of size lb, is not a k-plex,
-			//thus it is not possible to find a better larger than lb
-			printf("No better solution as G=lb, G is not kplex.Backtrack\n");
-			printf("--------BK-------------\n");
-#endif
-			return;
-		}		
 		if (P.contains(minu)) {
 			ui szmax = k + neiInP[minu] - P.getSize();
 			vector<ui> doing;
@@ -802,7 +774,7 @@ ubr: suggestion a vertex for branch
 			assert(szmax < doing.size());
 			multiRecurSearch(doing, szmax);
 		}
-		else { //minu in Cand
+		else {
 			//The first branch add minu to P
 #ifdef SHOWRECUR
 			printf("Add %u to P\n", minu);
@@ -815,12 +787,11 @@ ubr: suggestion a vertex for branch
 #ifdef SHOWRECUR
 			printf("Remove %u\n", minu);
 #endif
-			branch(); 
+			branch();
 			Excl.remove(minu);
 			addToCand(minu);
-
 		}
-	}	
+	}
 }
  
 void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
@@ -830,6 +801,7 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 	lb = _lb;
 	maxsec = _maxsec;
 	cntplex = 0;
+	interrupt = 0;
 	
 	Excl.init(n);
 	P.init(n);
@@ -861,6 +833,7 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 
 	for (ui i = 0; i < n - 1; i++) {		
 		ui v = dseq[i];
+		if (interrupt) break;
 		if (core[v] +k >= lb ) {
 			//ui sz = markBlock(v);
 			ui sz = markBlock1(v, cache3); // don't use cache1 and cache3 as return adress

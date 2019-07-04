@@ -190,6 +190,7 @@ class EnuBundle
 	int cntplex;
 	set<Solution> allsols;
 	ui maxsec;
+	ui interrupt;
 
 	unsigned long long nnodes;
 	clock_t startclk;
