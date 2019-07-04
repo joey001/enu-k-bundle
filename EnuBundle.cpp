@@ -1,4 +1,4 @@
-#define DBGMOD
+//#define DBGMOD
 
 #ifdef DBGMOD
 //#define BFSEARCH
@@ -76,24 +76,6 @@ int EnuBundle::degeneracyOrder(ui *seq, ui *core, ui* pos) {
 	return max_core;
 }
 
-#ifdef DBGMOD
-int EnuBundle::writeBlockToBin(char* filepath) {
-	FILE *f = Utility::open_file(filepath, "wb");
-	ui tt = sizeof(ui);
-	fwrite(&tt, sizeof(ui), 1, f); //length of ui
-	fwrite(&bn, sizeof(ui), 1, f);
-	fwrite(&bm, sizeof(ui), 1, f);
-	ui *degree = new ui[bn];
-	for (ui i = 0; i < bn; i++)
-		degree[i] = bstart[i + 1] - bstart[i];
-	fwrite(degree, sizeof(ui), bn, f);
-	fwrite(edges, sizeof(ui), bm, f);
-	fclose(f);
-	return 0;
-}
-#else
-int EnuBundle::writeBlockToBin(char* filepath) {}
-#endif
 ui EnuBundle::markBlock1(ui v, ui* adress) {
 	memset(dist, (ui)0, sizeof(ui)* n);
 	dist[v] = 1;
@@ -126,45 +108,42 @@ ui EnuBundle::markBlock1(ui v, ui* adress) {
 			}
 		}
 	}
-	//size pruning
+	/*size pruning*/
 	for (ui i = 0; i < szc2; i++) {
 		ui u = cache2[i];
-		//for(auto u: blkset){
-		if (dist[u]) {
 			//set<ui> vnei(edges + pstart[v], edges + pstart[v + 1]);
 			//caclculate intersections
-			ui cnt = 0;
-			ui p1 = pstart[v], p2 = pstart[u];
-			while (p1 != pstart[v + 1] && p2 != pstart[u + 1]) {
-				if (edges[p1] < edges[p2]) {
-					p1++;
-				}
-				else if (edges[p1] > edges[p2]) {
-					p2++;
-				}
-				else {//equal
-					if (dist[edges[p1]]) {
-						cnt++;
-					}
-					p1++, p2++;
-				}
+		ui cnt = 0;
+		ui p1 = pstart[v], p2 = pstart[u];
+		while (p1 != pstart[v + 1] && p2 != pstart[u + 1]) {
+			if (edges[p1] < edges[p2]) {
+				p1++;
 			}
-			if (dist[u] == 1) {
-				if (cnt + 2 * k < lb) {
-					dist[u] = 0;
-					//canprune = 1;
-					szblk--;
-				}
+			else if (edges[p1] > edges[p2]) {
+				p2++;
 			}
-			else {
-				if (cnt + 2 * k - 2 < lb) {
-					dist[u] = 0;
-					//canprune = 1;
-					szblk--;
+			else {//equal
+				if (dist[edges[p1]] ) {
+					cnt++;
 				}
+				p1++, p2++;
 			}
-
 		}
+		if (dist[u] == 1) {
+			if (cnt + 2 * k < lb) {
+				dist[u] = 0;
+				//canprune = 1;
+				szblk--;
+			}
+		}
+		else {
+			if (cnt + 2 * k - 2 < lb) {
+				dist[u] = 0;
+				//canprune = 1;
+				szblk--;
+			}
+		}
+
 	}
 	ui cnt = 0;
 	adress[cnt++] = v;
@@ -173,7 +152,7 @@ ui EnuBundle::markBlock1(ui v, ui* adress) {
 			adress[cnt++] = cache2[i];
 	}
 	assert(cnt == szblk);
-	return cnt;
+	return szblk;
 }
 
 
@@ -746,6 +725,7 @@ ubr: suggestion a vertex for branch
 
 	//find mindeg 
 	ui minu = bn;
+	/*
 	for (ui u = 0; u < bn; u++) {			
 		if (Cand.contains(u) || P.contains(u)) {
 			if(minu == bn || neiInG[u] < neiInG[minu])
@@ -855,23 +835,22 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 	bstart = new ui[n+1];
 	bedges = new ui[m];
 	
-	badc = new MBitSet[min(maxcore*maxcore, n)];
+	badc = new MBitSet[min(maxcore*maxcore+1, n)];
 	//binv = new MBitSet[min(maxcore*maxcore, n)];
 	dist = new ui[n];
 	common = new ui[n];
-	cache1 = new ui[n];
+	cache1 = new ui[min(maxcore*maxcore+1, n)];
 	szc1 = 0;
-	cache2 = new ui[n];
+	cache2 = new ui[min(maxcore*maxcore+1, n)];
 	szc2 = 0;
-	cache3 = new ui[n];
+	cache3 = new ui[min(maxcore*maxcore+1, n)];
 	szc3 = 0;
 
 	for (ui i = 0; i < n - 1; i++) {		
 		ui v = dseq[i];
 		if (interrupt) break;
 		if (core[v] +k >= lb ) {
-			//ui sz = markBlock(v);
-			ui sz = markBlock1(v, cache3); // don't use cache1 and cache3 as return adress
+			ui sz = markBlock1(v,cache3); // don't use cache1 and cache3 as return adress
 			if (sz < lb) {
 				//printf("Vertex %u [%u] discard \n", i, v);
 				continue;

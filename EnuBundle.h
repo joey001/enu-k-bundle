@@ -164,7 +164,7 @@ class EnuBundle
 
 	void PToCand(ui u);
 
-	ui markBlock1(ui v, ui * adress);
+	ui markBlock1(ui v, ui* adress);
 
 	ui markBlock2(ui v, ui* address);
 
@@ -201,9 +201,6 @@ public:
 	int readBinaryGraph(const char * filepath);
 
 	int degeneracyOrder(ui * seq, ui * core, ui * pos);
-	int writeBlockToBin(char * filepath);
-
-
 	
 	void enumPlex(ui _k, ui _lb, ui maxsec);
 
