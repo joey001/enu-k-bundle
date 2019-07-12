@@ -1,6 +1,7 @@
 #pragma once
 #include "Defines.h"
 #include <algorithm>
+#include <cassert>
 class RandList
 {
 private:
@@ -90,6 +91,7 @@ public:
 class MBitSet{
 private:
 	int n, m;
+	int cap;
 	unsigned *buf;
 	
 	const int msk = (1 << 16) - 1;	
@@ -100,10 +102,11 @@ private:
 			return twoPow[x & msk];
 		return twoPow[x >> 16 & msk] + 16;
 	}
+	
 public:
 	MBitSet() {		
-		n = m = 0;
 		buf = nullptr;
+		cap =  n = m = 0;
 		twoPow[1 << 0] = 0;
 		twoPow[1 << 1] = 1;
 		twoPow[1 << 2] = 2;
@@ -125,20 +128,20 @@ public:
 		if (buf != nullptr)
 			delete[] buf;
 	}
-	void init(int _n) {
+	void allocacte(int _cap) {
+		cap = _cap;
+
+		buf = new unsigned[(cap >>5) + 1];
+	}
+	void reinit(int _n) {
+		assert(_n <= cap);
 		m = _n & 31;
-		n = _n >> 5;
-		buf = new unsigned[n + 1];
+		n = _n >> 5;		
+		//buf = new unsigned[n + 1];
 		for (int i = 0; i <= n; ++i)
 			buf[i] = 0;		
 		//for (int i = 0; i < 16; ++i)
 		//	twoPow[1 << i] = i;//Ô¤ÏÈËã³ö2^i 
-	}
-	void dispose() {
-		if (buf != nullptr) {
-			delete[] buf;
-			buf = nullptr;
-		}
 	}
 	//FLIP all the bits
 	void flip() {
@@ -147,6 +150,7 @@ public:
 		buf[n] ^= ((unsigned)1 << m) - 1;
 	}
 	void set(int x) {
+		//assert(x < cap);
 		buf[x >> 5] ^= (unsigned)1 << (x & 31);
 	}
 	bool test(int x) {

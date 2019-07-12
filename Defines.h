@@ -33,6 +33,7 @@
 #include <cassert>
 
 using ui = unsigned int;
+using uli = unsigned long long;
 
 #define pb push_back
 #define mp make_pair

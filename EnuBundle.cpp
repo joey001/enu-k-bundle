@@ -1,7 +1,6 @@
-//#define DBGMOD
+#define DBGMOD
 
 #ifdef DBGMOD
-//#define BFSEARCH
 //#define SHOWBLK
 //#define SHOWSOL
 //#define SHOWRECUR
@@ -228,7 +227,7 @@ int EnuBundle::buildBlock(ui v, ui *blk, ui sz) {
 	bm = 0;
 	for (ui j = 0; j < bn; j++) {
 		int oruid = bID[j];
-		badc[j].init(bn);
+		badc[j].reinit(bn);
 		//binv[j].init(bn);
 		bstart[j] = bm;
 		for (ui k = pstart[oruid]; k < pstart[oruid + 1]; k++) {
@@ -481,14 +480,14 @@ void EnuBundle::multiRecurSearch(vector<ui> &doing, ui szmax) {
 					printf("Remove %u, alread reduced\n", doing[j]);
 #endif
 				}
-				Excl.add(doing[j]);
+				//Excl.add(doing[j]);
 			}
 			branch();
 
 			//recover
-			for (ui j = idx; j < doing.size(); j++) {
-				Excl.remove(doing[j]);
-			}
+			//for (ui j = idx; j < doing.size(); j++) {
+			//	Excl.remove(doing[j]);
+			//}
 			for (auto u : doreduced)
 				addToCand(u);			
 		}
@@ -561,19 +560,24 @@ void EnuBundle::recurSearch(ui start) {
 
 
 void EnuBundle::checkSolution() {
-	ui ismax = isGlobalMaximal();
+	ui ismax;
+	if (decompose)
+		ismax = isGlobalMaximal();
+	else
+		ismax = 1;
 	if (ismax) {
 		cntplex++;
 #ifdef SHOWSOL
-	/*	printf("Sol:");
+		printf("Sol:");
 		for (ui i = 0; i < P.getSize(); i++) {
 			printf("%u ", bID[P.get(i)]);
 		}
 		printf("\n");
-	*/
+	/*
 		ui rt = dbgCheckSolution();
 		if (!rt)
 			printf("Wrong solution pause\n");
+			*/
 #endif
 	}
 }
@@ -724,7 +728,7 @@ ubr: suggestion a vertex for branch
 	}
 
 	//find mindeg 
-	ui minu = bn;
+	ui minu = UINT_MAX;
 	/*
 	for (ui u = 0; u < bn; u++) {			
 		if (Cand.contains(u) || P.contains(u)) {
@@ -735,12 +739,12 @@ ubr: suggestion a vertex for branch
 	*/
 	for (ui i = 0; i < P.getSize(); i++) {
 		ui u = P.get(i);
-		if (minu == bn || neiInG[u] < neiInG[minu]) {
+		if (minu == UINT_MAX || neiInG[u] < neiInG[minu]) {
 			minu = u;
 		}
 	}
 	
-	if (neiInG[minu] + k < Cand.getSize() + P.getSize()) { // The whole graph can not be a k-plex
+	if (minu != UINT_MAX && neiInG[minu] + k < Cand.getSize() + P.getSize()) { // The whole graph can not be a k-plex
 		ui szmax = k + neiInP[minu] - P.getSize();
 		vector<ui> doing;
 		for (ui i = 0; i < Cand.getSize(); i++) {
@@ -754,7 +758,7 @@ ubr: suggestion a vertex for branch
 	else {
 		for (ui i = 0; i < Cand.getSize(); i++) {
 			ui u = Cand.get(i);
-			if (neiInG[u] < neiInG[minu]) {
+			if (minu == UINT_MAX || neiInG[u] < neiInG[minu]) {
 				minu = u;
 			}
 		}
@@ -809,14 +813,16 @@ ubr: suggestion a vertex for branch
 	}	
 }
  
-void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
+void EnuBundle::enumPlex(ui _k, ui _lb, uli _maxsec, ui _isdecompose)
 {	
 	startclk = clock();
 	k = _k;
 	lb = _lb;
 	maxsec = _maxsec;
+	decompose = _isdecompose;
+
 	cntplex = 0;
-	interrupt = 0;
+	interrupt = 0; //interrupt the program when time out.
 	
 	Excl.init(n);
 	P.init(n);
@@ -827,98 +833,104 @@ void EnuBundle::enumPlex(ui _k, ui _lb, ui _maxsec)
 	dseq = new ui[n];
 	core = new ui[n];
 	dpos = new ui[n];	//vtxmp[v] is the position of v in degeneracy order 
-	ui maxcore = degeneracyOrder(dseq, core, dpos); // fast degeneracy order
-	sortclk = clock();
-		//build subgraph		
-	nID = new ui[n];
-	bID = new ui[n];
-	bstart = new ui[n+1];
-	bedges = new ui[m];
 	
-	badc = new MBitSet[min(maxcore*maxcore+1, n)];
-	//binv = new MBitSet[min(maxcore*maxcore, n)];
 	dist = new ui[n];
 	common = new ui[n];
-	cache1 = new ui[min(maxcore*maxcore+1, n)];
 	szc1 = 0;
-	cache2 = new ui[min(maxcore*maxcore+1, n)];
+	cache1 = new ui[n];
 	szc2 = 0;
-	cache3 = new ui[min(maxcore*maxcore+1, n)];
+	cache2 = new ui[n];
 	szc3 = 0;
+	cache3 = new ui[n];
+	nID = new ui[n];
+	bID = new ui[n];
 
-	for (ui i = 0; i < n - 1; i++) {		
-		ui v = dseq[i];
-		if (interrupt) break;
-		if (core[v] +k >= lb ) {
-			ui sz = markBlock1(v,cache3); // don't use cache1 and cache3 as return adress
-			if (sz < lb) {
-				//printf("Vertex %u [%u] discard \n", i, v);
-				continue;
-			}
-			else {
-				buildBlock(v, cache3, sz);
-			}
-			printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
-#ifdef SHOWBLK	
-			for (ui i = 0; i < bn; i++) {
+	if (decompose) { // decompose the graph and enumerate k-plexes in smaller subgraphs
+		ui maxcore = degeneracyOrder(dseq, core, dpos); // fast degeneracy order
+		sortclk = clock();
+		//build subgraph		
+		ui maxbn = min(maxcore*maxcore + 1, n);
+		bstart = new ui[maxbn + 1];
+		bedges = new ui[m];
+		badc = new MBitSet[maxbn];
+		for (ui i = 0; i < maxbn; i++) {
+			badc[i].allocacte(maxbn);
+		}
 
-				printf("%u(%u):", i, bID[i]);
-				for (ui j = bstart[i]; j < bstart[i + 1]; j++) {
-					printf("%u(%u) ", bedges[j], bID[bedges[j]]);
+		for (ui i = 0; i < n - 1; i++) {
+			ui v = dseq[i];
+			if (interrupt) break;
+			if (core[v] + k >= lb) {
+				ui sz = markBlock1(v, cache3); // don't use cache1 and cache3 as return adress
+				if (sz < lb) {
+					//printf("Vertex %u [%u] discard \n", i, v);
+					continue;
 				}
-				printf("\n");
-			}
+				else {
+					buildBlock(v, cache3, sz);
+				}
+				printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
+#ifdef SHOWBLK	
+				for (ui i = 0; i < bn; i++) {
+
+					printf("%u(%u):", i, bID[i]);
+					for (ui j = bstart[i]; j < bstart[i + 1]; j++) {
+						printf("%u(%u) ", bedges[j], bID[bedges[j]]);
+					}
+					printf("\n");
+				}
 #endif
+				//build cand;
+				P.clear();
+				//P.add(0);
+				Cand.clear();
 
-#ifdef BFSEARCH
-			//Enum jazz.bin induced by vtx 178 is long, (when i = 168)
-			vector<ui> CurS;
-			vector<ui> CandS;
-			vector<ui> VisitS;
-			ui *degS = new ui[bn];
-			CurS.push_back(0);
-			memset(degS, 0, sizeof(ui)*bn);
-			for (ui j = bstart[0]; j < bstart[1]; j++) {
-				degS[bedges[j]] = 1;
-			}
-			for (ui u = bn - 1; u >= 1 ; u--) {
-				CandS.push_back(u);
-			}
-			nnodes = 0;
+				memset(neiInP, 0, sizeof(int) * bn);
+				for (ui u = 0; u < bn; u++) {
+					Cand.add(u);
+				}
 
-			//if (i == 7)
-				//printf("pause\n");
-			enumBruteforce(CurS, CandS, VisitS, degS);
-#else
-			//build cand;
-			P.clear();
-			//P.add(0);
-			Cand.clear();
-
-			memset(neiInP, 0, sizeof(int) * bn);
-			//for (ui j = bstart[0]; j < bstart[1]; j++) {
-			//	neiInP[bedges[j]] = 1;
-			//}
-
-			for (ui u = 0; u < bn; u++) {
-				Cand.add(u);
+				for (ui j = 0; j < bn; j++) {
+					neiInG[j] = bstart[j + 1] - bstart[j];
+				}
+				Excl.clear();
+				nnodes = 0;
+				recurSearch(0);
+				//branch();
+				//Clear block
+				printf("Node number: %llu\n\n", nnodes);
 			}
-			
-			for (ui j = 0; j < bn; j++) {
-				neiInG[j] = bstart[j + 1] - bstart[j];
-			}
-			Excl.clear();
-			nnodes = 0;
-			recurSearch(0);
-			//branch();
-			//Clear block
-			for (ui i = 0; i < bn; i++) 
-				badc[i].dispose();
-#endif// BFSEARCH
-			printf("Node number: %llu\n\n", nnodes);
 		}
 	}
-	
+	else {
+		bstart = new ui[n + 1];
+		bedges = new ui[m];
+		
+		badc = new MBitSet[n];
+		for (ui i = 0; i < n; i++) {
+			badc[i].allocacte(n+1);
+		}
+
+		for (ui u = 0; u < n; u++) 
+			cache3[szc3++] = u;
+		buildBlock(0, cache3,szc3);
+
+		sortclk = clock();
+		printf("n=%u, n=%u\n", bn, bm);
+		nnodes = 0;
+		P.clear();
+		Cand.clear();
+		memset(neiInP, 0, sizeof(int) * bn);
+		for (ui u = 0; u < bn; u++) {
+			Cand.add(u);
+		}
+
+		for (ui j = 0; j < bn; j++) {
+			neiInG[j] = bstart[j + 1] - bstart[j];
+		}
+		Excl.clear();
+		branch();
+	}
 	enumclk = clock();
 	printf("Number of %u-cplex larger than %u:  %u\n", k, lb, cntplex);
 	printf("Total search time %.2f\n", Utility::elapse_seconds(startclk, enumclk));
@@ -955,11 +967,12 @@ EnuBundle::~EnuBundle()
 	delete[] nID;
 	delete[] bstart;
 	delete[] bedges;
-	delete[] badc;
+	//delete[] badc;
 	//delete binv;
 	delete[] neiInG;
 	delete[] neiInP;
 	delete[] cache1;
 	delete[] cache2;
+	delete[] cache3;
 }
 
