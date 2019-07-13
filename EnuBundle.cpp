@@ -1,4 +1,4 @@
-#define DBGMOD
+//#define DBGMOD
 
 #ifdef DBGMOD
 //#define SHOWBLK
@@ -751,7 +751,7 @@ ubr: suggestion a vertex for branch
 			ui u = Cand.get(i);
 			if (u != minu && !badc[minu].test(u))
 				doing.emplace_back(u);
-		}
+		}		
 		assert(szmax < doing.size());
 		multiRecurSearch(doing, szmax);
 	}
@@ -813,13 +813,14 @@ ubr: suggestion a vertex for branch
 	}	
 }
  
-void EnuBundle::enumPlex(ui _k, ui _lb, uli _maxsec, ui _isdecompose)
+void EnuBundle::enumPlex(ui _k, ui _lb, uli _maxsec, ui _isdecompose, ui _quiete)
 {	
 	startclk = clock();
 	k = _k;
 	lb = _lb;
 	maxsec = _maxsec;
 	decompose = _isdecompose;
+	quiete = _quiete;
 
 	cntplex = 0;
 	interrupt = 0; //interrupt the program when time out.
@@ -869,7 +870,7 @@ void EnuBundle::enumPlex(ui _k, ui _lb, uli _maxsec, ui _isdecompose)
 				else {
 					buildBlock(v, cache3, sz);
 				}
-				printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
+				if (!quiete)	printf("Block %u[%u]: %u %u\n", i, v, bn, bm);
 #ifdef SHOWBLK	
 				for (ui i = 0; i < bn; i++) {
 
@@ -898,7 +899,7 @@ void EnuBundle::enumPlex(ui _k, ui _lb, uli _maxsec, ui _isdecompose)
 				recurSearch(0);
 				//branch();
 				//Clear block
-				printf("Node number: %llu\n\n", nnodes);
+				if(!quiete) printf("Node number: %llu\n\n", nnodes);
 			}
 		}
 	}

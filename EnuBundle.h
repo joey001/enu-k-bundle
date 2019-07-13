@@ -108,6 +108,7 @@ class EnuBundle
 	ui k;
 	ui lb;
 	ui decompose;
+	ui quiete; 
 
 	//induced subgraph
 	ui bvtx;
@@ -203,7 +204,7 @@ public:
 
 	int degeneracyOrder(ui * seq, ui * core, ui * pos);
 	
-	void enumPlex(ui _k, ui _lb, uli maxsec, ui _isdecomp);
+	void enumPlex(ui _k, ui _lb, uli maxsec, ui _isdecomp, ui _quiete);
 
 	//ui checkMaximal(vector<ui>& S, ui * degS);
 
