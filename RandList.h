@@ -88,6 +88,8 @@ public:
 #endif
 };
 
+extern int *twoPow;
+
 class MBitSet{
 private:
 	int n, m;
@@ -96,7 +98,7 @@ private:
 	
 	const int msk = (1 << 16) - 1;	
 	
-	int twoPow[1 << 16];
+	// int twoPow[1 << 16];
 	int lb(unsigned x) {
 		if (x & msk)
 			return twoPow[x & msk];
@@ -107,22 +109,6 @@ public:
 	MBitSet() {		
 		buf = nullptr;
 		cap =  n = m = 0;
-		twoPow[1 << 0] = 0;
-		twoPow[1 << 1] = 1;
-		twoPow[1 << 2] = 2;
-		twoPow[1 << 3] = 3;
-		twoPow[1 << 4] = 4;
-		twoPow[1 << 5] = 5;
-		twoPow[1 << 6] = 6;
-		twoPow[1 << 7] = 7;
-		twoPow[1 << 8] = 8;
-		twoPow[1 << 9] = 9;
-		twoPow[1 << 10] = 10;
-		twoPow[1 << 11] = 11;
-		twoPow[1 << 12] = 12;
-		twoPow[1 << 13] = 13;
-		twoPow[1 << 14] = 14;
-		twoPow[1 << 15] = 15;
 	}
 	~MBitSet() {
 		if (buf != nullptr)
@@ -141,7 +127,7 @@ public:
 		for (int i = 0; i <= n; ++i)
 			buf[i] = 0;		
 		//for (int i = 0; i < 16; ++i)
-		//	twoPow[1 << i] = i;//Ô¤ÏÈËã³ö2^i 
+		//	twoPow[1 << i] = i;//Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½2^i 
 	}
 	//FLIP all the bits
 	void flip() {

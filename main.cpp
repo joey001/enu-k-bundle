@@ -1,12 +1,22 @@
 #include "EnuBundle.h"
-#include "XGetopt.h"
+#include "args.hxx"
 #define FILELEN 1024
+#pragma comment(linker, "/STACK:102400000,102400000")
 //#define TRANSFER
 //#include<vld.h>
 void showUsage() {
 	fprintf(stderr, "enplex [-f filename] [--small] [-k k] [-q lb] [-t maxsecond] \n");
 }
+
+int *twoPow;
+
 int main(int argc, char** argv) {
+
+	twoPow = new int[1 << 16];
+
+	for (int i = 0; i < 16; ++i)
+		twoPow[1 << i] = i;
+
 	//p2p-Gnutella04,wiki-vote.txt
 	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\10th_dimacs\\jazz.bin";
 	//char filepath[FILELEN] = "D:\\Home\\benchmarks\\splex\\snap\\soc-Slashdot0902.bin";
@@ -24,49 +34,52 @@ int main(int argc, char** argv) {
 	uli maxsec = 600;
 	ui decompose = 0;
 	ui isquiete = 0;
-	while (true){
-		int option_index = 0;
-		static struct option long_options[] =
-		{
-			/* Set the trim flag. */
-			{"graphfile",	required_argument, 0, 'f'},
-			{"k",				required_argument, 0, 'k'},
-			{"maxsecond",		required_argument, 0, 't'},
-			{"lowerbound",	required_argument, 0, 'l'},
-			{"decompose",	no_argument, 0, 'd'},
-			{"quiete", no_argument, 0, 'q'},
-			{0, 0, 0, 0}
-		};
-		int c = getopt_long(argc, argv, "f:k:t:l:dq",
-			long_options, &option_index);
-		if (c == -1)
-			break;
-		switch (c)
-		{
-		case 'f':
-			strncpy(filepath, optarg, FILELEN);
-			break;
-		case 'k':
-			k = atoi(optarg);
-			break;
-		case 't':
-			maxsec = atoi(optarg);
-			break;
-		case 'l':
-			lb = atoi(optarg);
-			break;
-		case 'd':
-			decompose = 1;
-			break;
-		case 'q':
-			isquiete = 1;
-			break;
-		default:
-			showUsage();
-			exit(-1);
 
-		}
-	}	
+	args::ArgumentParser parser(
+        "Enplex, a software for enumerating kplex\n");
+
+    args::HelpFlag help(parser, "help", "Display this help menu",
+                        {'h', "help"});
+    args::Group required(parser, "", args::Group::Validators::All);
+
+    args::ValueFlag<std::string> benchmark_file(
+        parser, "benchmark", "Path to benchmark", {'f', "file"},
+        "");
+
+	args::ValueFlag<int> K(parser, "para k", "The parameter k", {'k', "k"}, 2);
+
+    args::ValueFlag<int> TimeLim(parser, "Time limitation",
+                                 "The cut down time in second", {'t', "time"},
+                                 90);
+
+	args::ValueFlag<int> LowerBound(parser, "Lower Bound", "The lower bound of the size of kplex", {'l', "lower"}, 1);
+
+	args::ValueFlag<int> Decompose(parser, "decompose", "Decompose or not", {'d', "d"}, 0);
+
+	args::ValueFlag<int> Quiete(parser, "quiete", "quiete or not", {'q', "q"}, 0);
+
+    try {
+        parser.ParseCLI(argc, argv);
+    } catch (args::Help) {
+        std::cout << parser;
+        return 0;
+    } catch (args::ParseError e) {
+        std::cerr << e.what() << std::endl;
+        std::cerr << parser;
+        return 0;
+    } catch (args::ValidationError e) {
+        std::cerr << e.what() << std::endl;
+        std::cerr << parser;
+        return 0;
+    }
+
+	strncpy(filepath, args::get(benchmark_file).c_str(), FILELEN);
+	k = args::get(K);
+	maxsec = args::get(TimeLim);
+	lb = args::get(LowerBound);
+	decompose = args::get(Decompose);
+	isquiete = args::get(Quiete);
+
 	if (decompose && lb < 2*k-2) {
 		fprintf(stderr, "lb is at least 2k-2 in decompose mode\n");
 		exit(-1);

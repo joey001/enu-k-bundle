@@ -42,6 +42,7 @@ int EnuBundle::readBinaryGraph(const char* filepath) {
 	}
 	fclose(f);
 	delete[] degree;
+	
 	return 0;
 }
 

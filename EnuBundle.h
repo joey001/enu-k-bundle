@@ -9,6 +9,7 @@
 #include <set>
 #include <map>
 #include <ctime>
+#include <climits>
 #include "Defines.h"
 #include "RandList.h"
 #include "LinearHeap.h"
